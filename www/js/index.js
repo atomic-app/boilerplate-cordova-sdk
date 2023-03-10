@@ -22,8 +22,41 @@
 document.addEventListener('deviceready', onDeviceReady, false);
 
 function onDeviceReady() {
-    // Cordova is now initialized. Have fun!
-
-    console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
-    document.getElementById('deviceready').classList.add('ready');
+  console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
+  setupAtomic()
 }
+
+function setupAtomic() {
+  const ATOMIC_API_HOST = '';
+  const ATOMIC_API_KEY = '';
+  const ATOMIC_ENVIRONMENT_ID = '';
+  const ATOMIC_STREAM_CONTAINER_ID = '';
+  const ATOMIC_REQUEST_TOKEN_STRING = '';
+
+  AtomicSDK.enableDebugMode(3)
+
+  AtomicSDK.initialise(ATOMIC_API_HOST, ATOMIC_API_KEY, ATOMIC_ENVIRONMENT_ID)
+  AtomicSDK.setSessionDelegate(() => {
+    return ATOMIC_REQUEST_TOKEN_STRING
+  })
+
+  AtomicSDK.singleCard(document.querySelector('#embed'), {
+    streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
+    features: {
+      cordova: {
+        enabled: true
+      }
+    }
+  })
+
+  AtomicSDK.launch({
+    streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
+    features: {
+      cordova: {
+        enabled: true
+      }
+    }
+  })
+
+}
+

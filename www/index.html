@@ -28,23 +28,21 @@
             * Disables use of inline scripts in order to mitigate risk of XSS vulnerabilities. To change this:
                 * Enable inline JS: add 'unsafe-inline' to default-src
         -->
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: https://ssl.gstatic.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:;">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://downloads.atomic.io/web-sdk/release/1.4.0/iframe-manager.js wss://50-2.client-api.atomic.io https://50-2.client-api.atomic.io blob: data: https://ssl.gstatic.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:;">
         <meta name="format-detection" content="telephone=no">
         <meta name="msapplication-tap-highlight" content="no">
-        <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover">
+        <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover, user-scalable=no">
         <meta name="color-scheme" content="light dark">
         <link rel="stylesheet" href="css/index.css">
-        <title>Hello World</title>
+        <title>Hello Atomic</title>
     </head>
     <body>
-        <div class="app">
-            <h1>Apache Cordova</h1>
-            <div id="deviceready" class="blink">
-                <p class="event listening">Connecting to Device</p>
-                <p class="event received">Device is Ready</p>
-            </div>
-        </div>
         <script src="cordova.js"></script>
+        <script src="js/iframe-manager.js" id="atomic-frame-manager"></script>
+        <script src="js/sdk.js"></script>
         <script src="js/index.js"></script>
+      <img class="logo-header" src="img/atomic-logo-on-light.svg"></img>
+      <div id="embed"></div>
+      <div class="some-app-content"></div>
     </body>
 </html>
