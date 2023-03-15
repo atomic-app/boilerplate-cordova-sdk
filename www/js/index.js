@@ -23,6 +23,8 @@ document.addEventListener('deviceready', onDeviceReady, false);
 
 function onDeviceReady() {
   console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
+
+  setupPushNotifications()
   setupAtomic()
 }
 
@@ -57,6 +59,33 @@ function setupAtomic() {
       }
     }
   })
+}
 
+function setupPushNotifications() {
+  const push = PushNotification.init({
+    android: {
+    },
+    ios: {
+      alert: "true",
+      badge: "true",
+      sound: "true"
+    }
+  });
+
+  push.on('registration', (data) => {
+    console.log('Registering for push notifications with token', data.registrationId);
+    console.log('Device platform is ', device.platform)
+    console.log(data.registrationType);
+  });
+
+  push.on('notification', (data) => {
+    console.log('onNotification', data)
+    console.log(data.title)
+  });
+
+  push.on('error', (e) => {
+    console.log('error on push notification, probably simulator');
+    console.log(e.message)
+  });
 }
 
