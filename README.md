@@ -16,8 +16,6 @@ npm install -g cordova
 
 For iOS development follow the instructions for the [iOS platform](https://cordova.apache.org/docs/en/11.x/guide/platforms/ios/index.html). 
 
-> The cordova-plugin-push plugin used in this app is not currently supported in Xcode 14.3. Until [this issue](https://github.com/havesource/cordova-plugin-push/issues/228) is resolved use an earlier version of Xcode such as Xcode 14.1. 
-
 > Push notifications on iOS will only work on a physical iOS device (not the simulator) even with Xcode 14 supporting notifications in the simulator on newer macOS devices. 
 
 For Android follow the instructions for [Android platform](https://cordova.apache.org/docs/en/11.x/guide/platforms/android/index.html). 
