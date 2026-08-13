@@ -16,7 +16,7 @@
   "devDependencies": {
     "@havesource/cordova-plugin-push": "^4.0.0",
     "cordova-android": "^10.1.2",
-    "cordova-ios": "^6.2.0",
+    "cordova-ios": "7.1.1",
     "cordova-plugin-device": "^2.1.0"
   },
   "cordova": {
