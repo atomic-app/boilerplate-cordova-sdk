@@ -10,7 +10,12 @@
     <allow-intent href="https://*/*" />
     <allow-navigation href="blob:*" />
     <!-- <allow-navigation href="blob:https://localhost/" /> -->
-    <allow-navigation href="about:blank" />
+    <!-- Must be "about:*", not "about:blank". CDVAllowList grants the empty-host
+         exemption only to file: and content:, so an "about:blank" entry parses as
+         host="blank" and never matches, because a real about: URL has a nil host.
+         The SDK renders its stream container in an iframe via srcdoc, so both
+         about:blank and about:srcdoc must pass the navigation filter. -->
+    <allow-navigation href="about:*" />
 
     <preference name="EnableViewportScale" value="true"/>
 
