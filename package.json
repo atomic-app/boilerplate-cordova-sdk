@@ -5,7 +5,6 @@
   "description": "A sample Apache Cordova application that responds to the deviceready event.",
   "main": "index.js",
   "scripts": {
-    "ios": "cordova build ios && cordova emulate ios",
     "android": "cordova build android && cordova emulate android"
   },
   "keywords": [
