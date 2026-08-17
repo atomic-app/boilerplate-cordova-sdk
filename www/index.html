@@ -27,8 +27,11 @@
             * https://ssl.gstatic.com is required only on Android and is needed for TalkBack to function properly
             * Disables use of inline scripts in order to mitigate risk of XSS vulnerabilities. To change this:
                 * Enable inline JS: add 'unsafe-inline' to default-src
+            * *.atomic.io (rather than a specific *.client-api.atomic.io / *.client-api.staging.atomic.io
+              pair) covers whichever API host you configure ATOMIC_API_HOST to in index.js - production,
+              staging, or any other Atomic-hosted environment - with no CSP edit needed per environment
         -->
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://downloads.atomic.io https://ssl.gstatic.com; style-src 'self' 'unsafe-inline'; media-src * https://edge.atomic.io; font-src 'self' https://fonts.gstatic.com/ data:; img-src 'self' * data: content: https://edge.atomic.io; frame-src blob:; connect-src https://*.client-api.atomic.io wss://*.client-api.atomic.io https://*.client-api.staging.atomic.io wss://*.client-api.staging.atomic.io https://downloads.atomic.io;">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.atomic.io https://ssl.gstatic.com; style-src 'self' 'unsafe-inline'; media-src * https://*.atomic.io; font-src 'self' https://fonts.gstatic.com/ data:; img-src 'self' * data: content: https://*.atomic.io; frame-src blob:; connect-src https://*.atomic.io wss://*.atomic.io;">
         <meta name="format-detection" content="telephone=no">
         <meta name="msapplication-tap-highlight" content="no">
         <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover, user-scalable=no">
