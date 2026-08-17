@@ -28,7 +28,7 @@
             * Disables use of inline scripts in order to mitigate risk of XSS vulnerabilities. To change this:
                 * Enable inline JS: add 'unsafe-inline' to default-src
         -->
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' wss://*.client-api.atomic.io https://*.client-api.atomic.io blob: data: https://ssl.gstatic.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; media-src *; font-src 'self' https://fonts.gstatic.com/ data:; img-src 'self' * data: content:;">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://downloads.atomic.io https://ssl.gstatic.com; style-src 'self' 'unsafe-inline'; media-src * https://edge.atomic.io; font-src 'self' https://fonts.gstatic.com/ data:; img-src 'self' * data: content: https://edge.atomic.io; frame-src blob:; connect-src https://*.client-api.atomic.io wss://*.client-api.atomic.io https://*.client-api.staging.atomic.io wss://*.client-api.staging.atomic.io https://downloads.atomic.io;">
         <meta name="format-detection" content="telephone=no">
         <meta name="msapplication-tap-highlight" content="no">
         <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover, user-scalable=no">
@@ -47,6 +47,11 @@
           <button class="modern-btn" id="loginBtn">Log in</button>
           <button class="modern-btn" id="logoutBtn" disabled>Logout</button>
         </div>
-        <div id="embed"></div>
+        <div id="tabBar">
+          <button class="tab-btn active" id="tab1Btn" data-tab="tab1">Single card</button>
+          <button class="tab-btn" id="tab2Btn" data-tab="tab2">Standalone</button>
+        </div>
+        <div id="embed-tab1" class="tab-panel active"></div>
+        <div id="embed-tab2" class="tab-panel"></div>
     </body>
 </html>

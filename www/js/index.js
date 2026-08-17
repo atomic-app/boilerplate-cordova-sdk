@@ -21,8 +21,8 @@ let deviceToken;
 let loggedIn = false;
 let hasRegisteredForNotifications = false;
 
-let launcherInstance;
-let singleCardInstance;
+let tab1CardInstance;
+let tab2EmbedInstance;
 
 async function registerDeviceForNotificationsWhenReady() {
   if (deviceToken && loggedIn && !hasRegisteredForNotifications) {
@@ -42,15 +42,18 @@ async function registerDeviceForNotificationsWhenReady() {
 
 function setupAtomic() {
   // Configuration -> SDK -> API Host (eg. "https://999-1.client-api.atomic.io")
-  const ATOMIC_API_HOST = '';
+  const ATOMIC_API_HOST = 'https://01.client-api.staging.atomic.io';
   // Configuration -> SDK -> API keys (eg. "my-api-key")
-  const ATOMIC_API_KEY = '';
+  const ATOMIC_API_KEY = 'cordova-api-key-ha';
   // Configuration -> Environment ID (eg. "AbC12de3")
-  const ATOMIC_ENVIRONMENT_ID = '';
+  const ATOMIC_ENVIRONMENT_ID = 'a9YrNl';
   // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
-  const ATOMIC_STREAM_CONTAINER_ID = '';
+  const ATOMIC_STREAM_CONTAINER_ID = '31LE8bX0';
+  // TODO: replace with a real second stream container ID from Workbench - reusing
+  // the tab 1 ID as a placeholder so the tab UI works before that container exists
+  const ATOMIC_STREAM_CONTAINER_ID_TAB2 = '31LE8bX0';
   // A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
-  const ATOMIC_REQUEST_TOKEN_STRING = '';
+  const ATOMIC_REQUEST_TOKEN_STRING = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1ZjlmMWNjMy01N2U4LTUyN2EtOTMyNy1kZjhmODliMmE5OTkiLCJpYXQiOjE3ODY2Njk5MDAsImV4cCI6MTc4NzI3NDcwMH0.c3-YnFjooxqHzA6re0u9vET3sM546jbjy4yV6oP8qW3B99Gy5gXV0KQr0omArFK-OfnKyfRqg7GwnygO44qrwJY0n-g1y__L5I2_E4GXLocw9wwXb_KnK_HK867kTJHjtvJEMcfM7kmegtsD-sIQlHVIZ0SsiN1Jj-xF_YiuL_We8dqJxai8P5ZQtNwpnNTVmEexKY88NpnTmhGHipLiBsDKYLZ7DO9gmPE_uVYFxQmNGqoeNx02le3lNHZd7gn6SNrbv_u74Xz4iG1o9gjedMl0bA67FCSGXY9eM6ivv4DlaMVjyDA1pXxRu1CUe6e2mLjgDHVygOv4qVByMqckyw';
 
   AtomicSDK.initialise(ATOMIC_API_HOST, ATOMIC_API_KEY, ATOMIC_ENVIRONMENT_ID);
 
@@ -69,7 +72,7 @@ function setupAtomic() {
     return ATOMIC_REQUEST_TOKEN_STRING;
   });
 
-  singleCardInstance = AtomicSDK.singleCard(document.querySelector('#embed'), {
+  tab1CardInstance = AtomicSDK.singleCard(document.querySelector('#embed-tab1'), {
     streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
     features: {
       cordova: {
@@ -78,8 +81,8 @@ function setupAtomic() {
     },
   });
 
-  launcherInstance = AtomicSDK.launch({
-    streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
+  tab2EmbedInstance = AtomicSDK.embed(document.querySelector('#embed-tab2'), {
+    streamContainerId: ATOMIC_STREAM_CONTAINER_ID_TAB2,
     features: {
       cordova: {
         enabled: true,
@@ -89,6 +92,7 @@ function setupAtomic() {
 
   AtomicSDK.registerStreamContainersForNotifications([
     ATOMIC_STREAM_CONTAINER_ID,
+    ATOMIC_STREAM_CONTAINER_ID_TAB2,
   ]);
 }
 
@@ -151,13 +155,25 @@ function logout() {
   loggedIn = false;
   hasRegisteredForNotifications = false;
 
-  singleCardInstance.stop();
-  launcherInstance.stop();
+  tab1CardInstance.stop();
+  tab2EmbedInstance.stop();
+}
+
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.tab-panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.id === `embed-${tabName}`);
+  });
 }
 
 function registerObservers() {
   document.querySelector('#loginBtn').addEventListener('click', login);
   document.querySelector('#logoutBtn').addEventListener('click', logout);
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
 }
 
 function onDeviceReady() {

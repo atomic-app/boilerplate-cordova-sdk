@@ -11,6 +11,8 @@ body {
   background-color: white;
   height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   width:100%;
+  display: flex;
+  flex-direction: column;
   -webkit-touch-callout: none;                /* prevent callout to copy image, etc when tap to hold */
   -webkit-text-size-adjust: none;             /* prevent webkit from resizing text to fit */
   -webkit-user-select: none;                  /* prevent copy paste, to allow, change 'none' to 'text' */
@@ -22,12 +24,55 @@ body {
   box-sizing: border-box;
 }
 
-#embed {
+#tabBar {
+  display: flex;
+  border-bottom: 1px solid #eee;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 12px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+  color: #3231e2;
+  font-weight: 600;
+  border-bottom-color: #3231e2;
+}
+
+.tab-panel {
+  display: none;
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-panel.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Both embed variants render their iframe as a direct child of the panel -
+   fill the panel the same way for both rather than relying on the iframe to
+   auto-size to its own content (it doesn't; it just takes a default height
+   unless told otherwise). The panel's own overflow-y:auto above handles any
+   content taller than the available space. */
+.atomic-sdk-frame {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .atomic-sdk-frame.single-card {
-  width: 100%;
   padding: 8px;
 }
 

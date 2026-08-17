@@ -6,7 +6,9 @@
   "main": "index.js",
   "scripts": {
     "ios": "cordova build ios && cordova emulate ios",
-    "android": "cordova build android && cordova emulate android"
+    "android": "cordova build android && cordova emulate android",
+    "token": "node scripts/generate-token.js",
+    "update-sdk": "node scripts/update-sdk.js"
   },
   "keywords": [
     "ecosystem:cordova"
@@ -15,9 +17,9 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@havesource/cordova-plugin-push": "^4.0.0",
-    "cordova-android": "^10.1.2",
     "cordova-ios": "^6.2.0",
-    "cordova-plugin-device": "^2.1.0"
+    "cordova-plugin-device": "^2.1.0",
+    "jsonwebtoken": "^9.0.3"
   },
   "cordova": {
     "platforms": [
@@ -30,5 +32,13 @@
         "IOS_FIREBASE_MESSAGING_VERSION": "~> 8.1.1"
       }
     }
+  },
+  "dependencies": {
+    "cordova-android": "13.0.0"
+  },
+  "atomicWebSdk": {
+    "version": "26.2.0",
+    "downloadUrl": "https://downloads.atomic.io/web-sdk/release/26.2.0/sdk.js",
+    "vendoredAt": "www/js/sdk.js"
   }
 }

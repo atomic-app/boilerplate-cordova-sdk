@@ -10,7 +10,7 @@
     <allow-intent href="https://*/*" />
     <allow-navigation href="blob:*" />
     <!-- <allow-navigation href="blob:https://localhost/" /> -->
-    <allow-navigation href="about:blank" />
+    <allow-navigation href="about:*" />
 
     <preference name="EnableViewportScale" value="true"/>
 
