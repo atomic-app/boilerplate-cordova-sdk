@@ -13,10 +13,10 @@
   "author": "Apache Cordova Team",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@havesource/cordova-plugin-push": "^4.0.0",
-    "cordova-android": "^10.1.2",
+    "@havesource/cordova-plugin-push": "^7.0.0",
+    "cordova-android": "^14.0.1",
     "cordova-ios": "7.1.1",
-    "cordova-plugin-device": "^2.1.0"
+    "cordova-plugin-device": "^3.0.0"
   },
   "cordova": {
     "platforms": [
@@ -26,7 +26,7 @@
     "plugins": {
       "cordova-plugin-device": {},
       "@havesource/cordova-plugin-push": {
-        "IOS_FIREBASE_MESSAGING_VERSION": "~> 8.1.1"
+        "IOS_FIREBASE_MESSAGING_VERSION": "~> 10.29.0"
       }
     }
   }
