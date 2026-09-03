@@ -73,15 +73,23 @@ The Android app requires a `google-services.json` file in the repo root before i
 
 ## CI builds
 
-Every push builds unsigned artifacts on CircleCI: an iOS Simulator build (zipped `.app`, no code signing) and an Android debug `.apk`. Both are attached to the job as artifacts — download them from the CircleCI job page.
+Every push builds three artifacts on CircleCI, all attached to their job as artifacts — download them from the CircleCI job page:
 
-- iOS: unzip `HelloCordova.app.zip` and install with `xcrun simctl install <device_id> HelloCordova.app`.
-- Android: install with `adb install app-debug.apk`.
+- **iOS Simulator** (`build_ios_simulator`): unsigned, zipped `.app`. Unzip and install with `xcrun simctl install <device_id> HelloCordova.app`.
+- **iOS device** (`build_ios_device_ipa`): development-signed `HelloCordova.ipa`, installable on registered test-device UDIDs. This is for testing only — it is not a TestFlight/App Store build.
+- **Android** (`build_android_debug`): debug `.apk`. Install with `adb install app-debug.apk`.
 
-The Android job needs a `GOOGLE_SERVICES` project environment variable (the contents of `google-services.json`, base64-encoded) set in CircleCI project settings — same convention as `atomic-sdk-flutter` — it fails with a clear message until that's added.
+Required CircleCI project environment variables:
 
-Both jobs also need an `ATOMIC_PRIVATE_KEY` project environment variable (the contents of `keys/atomic_private.pem`, base64-encoded, from 1Password) set in CircleCI project settings. Each build generates a fresh JWT from it via `scripts/generate-token.js` and substitutes it into `www/js/index.js` — nothing token-shaped is ever committed to source or stored as a static secret, so there's nothing to expire or refresh.
+| Variable | Job(s) | Contents |
+|---|---|---|
+| `GOOGLE_SERVICES` | Android | `google-services.json`, base64-encoded — same convention as `atomic-sdk-flutter` |
+| `ATOMIC_PRIVATE_KEY` | all | `keys/atomic_private.pem`, base64-encoded, from 1Password |
+| `ATOMIC_CUSTOMER_ID` | all (optional) | plain string; which Workbench test user the generated token authenticates as. Falls back to `scripts/generate-token.js`'s hardcoded default if unset |
+| `IOS_CERTIFICATE` | iOS device | Apple **Development** certificate `.p12`, base64-encoded — the same kind of certificate Xcode's automatic signing uses locally, exported via Keychain Access |
+| `IOS_CERTIFICATE_PASSWORD` | iOS device | export password set when creating the `.p12` |
+| `IOS_PROVISIONING_PROFILE` | iOS device | a **Development** `.mobileprovision` for this app's bundle ID, base64-encoded — must have the test devices' UDIDs registered in the Apple Developer portal, and the Push Notifications capability enabled |
 
-Optionally, set an `ATOMIC_CUSTOMER_ID` project environment variable to control which Workbench test user the generated token authenticates as. It's a plain string (not base64), so CircleCI exposes it to the build automatically — no extra setup step needed. Without it, `scripts/generate-token.js` falls back to its hardcoded default test user.
+`ATOMIC_PRIVATE_KEY` and `ATOMIC_CUSTOMER_ID` are used the same way for all three builds: each generates a fresh JWT from the private key via `scripts/generate-token.js` and substitutes it into `www/js/index.js` — nothing token-shaped is ever committed to source or stored as a static secret, so there's nothing to expire or refresh.
 
-These are debug/simulator builds only, not signed for a physical device or BrowserStack. Real-device signing (Apple distribution cert + provisioning profile, Android signing keystore) would need to be added the same way the other Atomic SDK sample-app pipelines do it, as a follow-up.
+The `build_ios_device_ipa` job builds with Fastlane (`fastlane/Fastfile`, `Gemfile`), same pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` + `import_certificate` + `build_ios_app`, exported with `method: development`. There's no committed `Gemfile.lock` yet — the local Ruby available while setting this up was too old to generate one that would match CI's pinned Ruby (3.3.6, installed via `rbenv` in the job itself), so `bundle install` resolves fresh each run. Worth generating and committing one later for faster, more deterministic installs.

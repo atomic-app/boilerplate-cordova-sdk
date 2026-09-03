@@ -33,3 +33,10 @@ node_modules/
 
 # JWT signing keypair, pulled from 1Password per-developer
 /keys/
+
+# iOS signing certificate, decoded from CircleCI at build time
+/DevelopmentCertificate.p12
+
+# Fastlane/Xcode build output
+/build/
+/vendor/

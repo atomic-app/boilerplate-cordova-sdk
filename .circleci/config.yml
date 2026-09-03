@@ -9,15 +9,10 @@ executors:
       xcode: "26.2.0"
     resource_class: m4pro.medium
 
-jobs:
-  build_ios_simulator:
-    executor: latest_xcode
-    environment:
-      LANG: en_US.UTF-8
-      LC_ALL: en_US.UTF-8
+commands:
+  inject_atomic_token:
+    description: "Install JS deps, then generate a fresh Atomic JWT from the private key and inject it into www/js/index.js"
     steps:
-      - macos/install-rosetta
-      - checkout
       - run:
           name: Restore Atomic private key
           command: |
@@ -39,6 +34,17 @@ jobs:
             TOKEN=$(node scripts/generate-token.js)
             perl -pi -e "s/(ATOMIC_REQUEST_TOKEN_STRING = ')[^']*(')/\$1${TOKEN}\$2/" www/js/index.js
             rm keys/atomic_private.pem
+
+jobs:
+  build_ios_simulator:
+    executor: latest_xcode
+    environment:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - macos/install-rosetta
+      - checkout
+      - inject_atomic_token
       - run:
           name: Add iOS platform
           command: cordova platform add ios@7.1.1
@@ -62,6 +68,62 @@ jobs:
           path: build/Build/Products/Debug-iphonesimulator/HelloCordova.app.zip
           destination: HelloCordova.app.zip
 
+  build_ios_device_ipa:
+    executor: latest_xcode
+    environment:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - macos/install-rosetta
+      - checkout
+      - run:
+          name: Setup code signing
+          command: |
+            if [ -z "$IOS_CERTIFICATE" ] || [ -z "$IOS_CERTIFICATE_PASSWORD" ] || [ -z "$IOS_PROVISIONING_PROFILE" ]; then
+              echo "IOS_CERTIFICATE, IOS_CERTIFICATE_PASSWORD and IOS_PROVISIONING_PROFILE must all be set as CircleCI project environment variables."
+              exit 1
+            fi
+
+            echo "$IOS_CERTIFICATE" | base64 --decode > DevelopmentCertificate.p12
+
+            PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+            mkdir -p "$PROFILE_DIR"
+            PROFILE_PATH="$PROFILE_DIR/Development.mobileprovision"
+            echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > "$PROFILE_PATH"
+
+            # The provisioningProfiles hash in fastlane/Fastfile needs the profile's
+            # display name, not its filename - pull it out of the profile itself so
+            # there's no separate value to keep in sync by hand.
+            PROFILE_NAME=$(security cms -D -i "$PROFILE_PATH" | plutil -extract Name raw -o - -)
+            echo "export IOS_PROVISIONING_PROFILE_NAME='${PROFILE_NAME}'" >> "$BASH_ENV"
+      - run:
+          # Workaround for Ruby 3.4 + fastlane, same as atomic-sdk-flutter's iOS setup.
+          name: Use Ruby 3.3.x
+          command: |
+            HOMEBREW_NO_INSTALL_UPGRADE=1 brew install rbenv ruby-build
+            echo 'eval "$(rbenv init - bash)"' >> "$BASH_ENV"
+            source "$BASH_ENV"
+            rbenv install -s 3.3.6
+            rbenv global 3.3.6
+            gem install bundler -v 2.5.22
+      - run:
+          name: Install Ruby gems
+          command: bundle install
+      - inject_atomic_token
+      - run:
+          name: Add iOS platform
+          command: cordova platform add ios@7.1.1
+      - run:
+          name: Build development-signed ipa
+          command: bundle exec fastlane build_test_ipa
+      - run:
+          name: Clean up signing assets
+          command: rm -f DevelopmentCertificate.p12
+          when: always
+      - store_artifacts:
+          path: build/ipa/HelloCordova.ipa
+          destination: HelloCordova.ipa
+
   build_android_debug:
     docker:
       - image: cimg/android:2026.07
@@ -84,27 +146,7 @@ jobs:
               exit 1
             fi
             echo "$GOOGLE_SERVICES" | base64 --decode > google-services.json
-      - run:
-          name: Restore Atomic private key
-          command: |
-            if [ -z "$ATOMIC_PRIVATE_KEY" ]; then
-              echo "ATOMIC_PRIVATE_KEY is not set."
-              echo "Add it as a project environment variable (base64-encoded keys/atomic_private.pem, from 1Password) in CircleCI project settings, then re-run."
-              exit 1
-            fi
-            mkdir -p keys
-            echo "$ATOMIC_PRIVATE_KEY" | base64 --decode > keys/atomic_private.pem
-      - run:
-          name: Install dependencies
-          command: |
-            npm install -g cordova
-            npm install
-      - run:
-          name: Generate and inject a fresh Atomic request token
-          command: |
-            TOKEN=$(node scripts/generate-token.js)
-            perl -pi -e "s/(ATOMIC_REQUEST_TOKEN_STRING = ')[^']*(')/\$1${TOKEN}\$2/" www/js/index.js
-            rm keys/atomic_private.pem
+      - inject_atomic_token
       - run:
           name: Add Android platform
           command: cordova platform add android
@@ -119,4 +161,5 @@ workflows:
   build-apps:
     jobs:
       - build_ios_simulator
+      - build_ios_device_ipa
       - build_android_debug
