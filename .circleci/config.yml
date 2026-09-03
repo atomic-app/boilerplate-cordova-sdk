@@ -228,7 +228,7 @@ workflows:
   build-apps:
     jobs:
       - build_ios_device_ipa
-      - build_android_debug
+      # - build_android_debug
 
   build_ios_simulator:
     when: << pipeline.parameters.build_for_simulator >>

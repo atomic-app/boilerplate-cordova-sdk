@@ -52,7 +52,7 @@ platform :ios do
     # conflicts with automatic signing ("conflicting code signing identity iPhone
     # Distribution has been manually specified"). Strip it directly, scoped to just
     # this one target, so automatic signing can fully auto-resolve identity itself.
-    project = Xcodeproj::Project.open("platforms/ios/HelloCordova.xcodeproj")
+    project = Xcodeproj::Project.open(File.join(__dir__, "..", "platforms/ios/HelloCordova.xcodeproj"))
     project.targets.each do |target|
       next unless target.name == "HelloCordova"
       target.build_configurations.each do |config|
