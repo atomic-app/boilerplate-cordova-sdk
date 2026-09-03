@@ -1,6 +1,5 @@
 opt_out_usage
 default_platform(:ios)
-require "xcodeproj"
 
 BUNDLE_ID = File.read(File.join(__dir__, "..", "config.xml"))[/ios-CFBundleIdentifier="([^"]+)"/, 1]
 
@@ -44,32 +43,6 @@ platform :ios do
       team_id: ENV["IOS_TEAM_ID"],
       targets: ["HelloCordova"]
     )
-
-    # cordova's generated project bakes CODE_SIGN_IDENTITY = "iPhone Distribution"
-    # into the Release config (a leftover from its template, meant for App
-    # Store-style signing), which update_code_signing_settings doesn't touch under
-    # automatic signing - it only manages the team ID there. Left in place, it
-    # conflicts with automatic signing ("conflicting code signing identity iPhone
-    # Distribution has been manually specified"). Deleting it from just the target's
-    # own build configurations turned out to be a no-op - the value is set at the
-    # project level (the shared baseline every target inherits from, since
-    # HelloCordova.xcodeproj only actually contains the one HelloCordova target, no
-    # Pods/CordovaLib targets live in it), so strip it from there too.
-    project = Xcodeproj::Project.open(File.join(__dir__, "..", "platforms/ios/HelloCordova.xcodeproj"))
-    project.build_configurations.each do |config|
-      found = config.build_settings["CODE_SIGN_IDENTITY"]
-      UI.message("Project-level [#{config.name}] CODE_SIGN_IDENTITY before delete: #{found.inspect}")
-      config.build_settings.delete("CODE_SIGN_IDENTITY")
-    end
-    project.targets.each do |target|
-      next unless target.name == "HelloCordova"
-      target.build_configurations.each do |config|
-        found = config.build_settings["CODE_SIGN_IDENTITY"]
-        UI.message("Target-level [#{config.name}] CODE_SIGN_IDENTITY before delete: #{found.inspect}")
-        config.build_settings.delete("CODE_SIGN_IDENTITY")
-      end
-    end
-    project.save
 
     build_ios_app(
       workspace: "platforms/ios/HelloCordova.xcworkspace",

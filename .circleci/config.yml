@@ -141,6 +141,19 @@ jobs:
           name: Add iOS platform
           command: npx cordova platform add ios@7.1.1
       - run:
+          # cordova-ios's own build-release.xcconfig hard-codes
+          # CODE_SIGN_IDENTITY = "iPhone Distribution" (meant for App Store/Ad Hoc
+          # builds), which conflicts with the Automatic signing this job forces via
+          # fastlane's update_code_signing_settings ("conflicting code signing
+          # identity"). build-extras.xcconfig is cordova-ios's own documented
+          # override point, included right after build-release.xcconfig sets that
+          # value - not a hack. Regenerated fresh by "Add iOS platform" above on
+          # every run, so this has to happen after that step, every time.
+          name: Override CODE_SIGN_IDENTITY for Automatic signing
+          command: |
+            echo 'CODE_SIGN_IDENTITY = Apple Development' >> platforms/ios/cordova/build-extras.xcconfig
+            echo 'CODE_SIGN_IDENTITY[sdk=iphoneos*] = Apple Development' >> platforms/ios/cordova/build-extras.xcconfig
+      - run:
           name: Build development-signed ipa
           command: RBENV_VERSION=3.3.6 bundle exec fastlane build_test_ipa
       - run:
