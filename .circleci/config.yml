@@ -96,9 +96,14 @@ jobs:
 
             # The provisioningProfiles hash in fastlane/Fastfile needs the profile's
             # display name, not its filename - pull it out of the profile itself so
-            # there's no separate value to keep in sync by hand.
+            # there's no separate value to keep in sync by hand. Same for the team ID:
+            # cordova's generated Xcode project has no DEVELOPMENT_TEAM set (that's
+            # normally chosen by hand in Xcode's Signing & Capabilities UI), so
+            # fastlane/Fastfile forces manual signing and needs this to do it.
             PROFILE_NAME=$(security cms -D -i "$PROFILE_PATH" | plutil -extract Name raw -o - -)
+            TEAM_ID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract TeamIdentifier.0 raw -o - -)
             echo "export IOS_PROVISIONING_PROFILE_NAME='${PROFILE_NAME}'" >> "$BASH_ENV"
+            echo "export IOS_TEAM_ID='${TEAM_ID}'" >> "$BASH_ENV"
       - restore_cache:
           key: rbenv-ruby-3.3.6-{{ arch }}
       - run:
@@ -169,6 +174,14 @@ jobs:
             fi
             echo "$GOOGLE_SERVICES" | base64 --decode > google-services.json
       - run:
+          # cimg/android:2026.07 only ships build-tools 35.0.0+ and platforms
+          # android-34+, but cordova-android 10.1.2's defaults
+          # (cdv-gradle-config-defaults.json) pin MIN_BUILD_TOOLS_VERSION 30.0.3 and
+          # SDK_VERSION 30. This has to run before the JDK 8 switch below: sdkmanager
+          # itself requires JDK 17+ to run, and would fail under 8.
+          name: Install Android build-tools 30.0.3 and platform android-30 (cordova-android 10.1.2's pin)
+          command: yes | sdkmanager "platforms;android-30" "build-tools;30.0.3"
+      - run:
           # cimg/android:2026.07 only ships Gradle 9.6.1, whose Groovy 4 runtime
           # can't resolve groovy.util.XmlParser - a class cordova-android 10.1.2's
           # own cordova.gradle uses directly, so its Gradle wrapper bootstrap step
@@ -177,7 +190,8 @@ jobs:
           # pin Gradle 7.1.1 and AGP 4.2.2, so install and use exactly that instead -
           # not just "any pre-Groovy-4 Gradle" - to match what this cordova-android
           # release actually expects. AGP 4.2.2's era also expects JDK 8, not the
-          # image's default JDK 21, so switch that too.
+          # image's default JDK 21, so switch that too - after the sdkmanager step
+          # above, since that needs JDK 17+ to run itself.
           name: Install Gradle 7.1.1 (matches cordova-android 10.1.2)
           command: |
             curl -fsSL https://services.gradle.org/distributions/gradle-7.1.1-bin.zip -o /tmp/gradle-7.1.1.zip
@@ -191,13 +205,6 @@ jobs:
               exit 1
             fi
             echo "export JAVA_HOME=$JAVA8_HOME" >> "$BASH_ENV"
-      - run:
-          # Same era mismatch as the Gradle/JDK step above: cimg/android:2026.07 only
-          # ships build-tools 35.0.0+ and platforms android-34+, but cordova-android
-          # 10.1.2's defaults (cdv-gradle-config-defaults.json) pin
-          # MIN_BUILD_TOOLS_VERSION 30.0.3 and SDK_VERSION 30.
-          name: Install Android build-tools 30.0.3 and platform android-30 (cordova-android 10.1.2's pin)
-          command: yes | sdkmanager "platforms;android-30" "build-tools;30.0.3"
       - inject_atomic_token
       - run:
           name: Add Android platform

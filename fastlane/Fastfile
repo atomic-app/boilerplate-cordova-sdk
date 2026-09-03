@@ -17,6 +17,12 @@ platform :ios do
 
   desc "Builds a development-signed ipa for device testing"
   lane :build_test_ipa do
+    # cordova platform add ios generates a fresh Xcode project with no DEVELOPMENT_TEAM
+    # set (normally picked by hand in Xcode's Signing & Capabilities UI), so archiving
+    # fails with "requires a development team" unless forced here. xcargs forces the
+    # same manual signing for the archive step that export_options already specifies
+    # for the export step, rather than relying on whatever signing style the generated
+    # project happens to default to.
     build_ios_app(
       workspace: "platforms/ios/HelloCordova.xcworkspace",
       configuration: "Release",
@@ -25,6 +31,7 @@ platform :ios do
       clean: true,
       output_directory: "build/ipa",
       output_name: "HelloCordova.ipa",
+      xcargs: "DEVELOPMENT_TEAM=#{ENV['IOS_TEAM_ID']} CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=\"#{ENV['IOS_PROVISIONING_PROFILE_NAME']}\" CODE_SIGN_IDENTITY=\"Apple Development\"",
       export_options: {
         method: "development",
         provisioningProfiles: {
