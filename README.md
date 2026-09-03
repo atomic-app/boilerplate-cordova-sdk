@@ -73,11 +73,12 @@ The Android app requires a `google-services.json` file in the repo root before i
 
 ## CI builds
 
-Every push builds three artifacts on CircleCI, all attached to their job as artifacts — download them from the CircleCI job page:
+Every push builds two artifacts on CircleCI, attached to their job as artifacts — download them from the CircleCI job page:
 
-- **iOS Simulator** (`build_ios_simulator`): unsigned, zipped `.app`. Unzip and install with `xcrun simctl install <device_id> HelloCordova.app`.
 - **iOS device** (`build_ios_device_ipa`): development-signed `HelloCordova.ipa`, installable on registered test-device UDIDs. This is for testing only — it is not a TestFlight/App Store build.
 - **Android** (`build_android_debug`): debug `.apk`. Install with `adb install app-debug.apk`.
+
+A third, **iOS Simulator** (`build_ios_simulator`, unsigned zipped `.app`), is opt-in — it doesn't run on every push. Trigger it from CircleCI's "Trigger Pipeline" with the boolean parameter `build_for_simulator` set to `true`. Unzip and install with `xcrun simctl install <device_id> HelloCordova.app`.
 
 Required CircleCI project environment variables:
 

@@ -1,5 +1,10 @@
 version: 2.1
 
+parameters:
+  build_for_simulator:
+    type: boolean
+    default: false
+
 orbs:
   macos: circleci/macos@2.5.2
 
@@ -26,7 +31,7 @@ commands:
       - run:
           name: Install dependencies
           command: |
-            npm install -g cordova
+            sudo npm install -g cordova
             npm install
       - run:
           name: Generate and inject a fresh Atomic request token
@@ -96,16 +101,30 @@ jobs:
             # there's no separate value to keep in sync by hand.
             PROFILE_NAME=$(security cms -D -i "$PROFILE_PATH" | plutil -extract Name raw -o - -)
             echo "export IOS_PROVISIONING_PROFILE_NAME='${PROFILE_NAME}'" >> "$BASH_ENV"
+      - restore_cache:
+          key: rbenv-ruby-3.3.6-{{ arch }}
       - run:
           # Workaround for Ruby 3.4 + fastlane, same as atomic-sdk-flutter's iOS setup.
+          # rbenv install -s skips the from-source compile when the cache restore above
+          # already populated ~/.rbenv/versions/3.3.6.
+          #
+          # Only the shims dir goes into BASH_ENV, not `eval "$(rbenv init - bash)"`.
+          # rbenv is itself a bash script; putting the init eval in BASH_ENV means every
+          # later non-interactive bash process - including the ones rbenv spawns
+          # internally - re-sources BASH_ENV and re-runs it, recursively forking rbenv
+          # until the VM runs out of processes.
           name: Use Ruby 3.3.x
           command: |
             HOMEBREW_NO_INSTALL_UPGRADE=1 brew install rbenv ruby-build
-            echo 'eval "$(rbenv init - bash)"' >> "$BASH_ENV"
-            source "$BASH_ENV"
+            eval "$(rbenv init - bash)"
             rbenv install -s 3.3.6
             rbenv global 3.3.6
             gem install bundler -v 2.5.22
+            echo 'export PATH="$HOME/.rbenv/shims:$PATH"' >> "$BASH_ENV"
+      - save_cache:
+          key: rbenv-ruby-3.3.6-{{ arch }}
+          paths:
+            - ~/.rbenv/versions/3.3.6
       - run:
           name: Install Ruby gems
           command: bundle install
@@ -160,6 +179,10 @@ jobs:
 workflows:
   build-apps:
     jobs:
-      - build_ios_simulator
       - build_ios_device_ipa
       - build_android_debug
+
+  build_ios_simulator:
+    when: << pipeline.parameters.build_for_simulator >>
+    jobs:
+      - build_ios_simulator
