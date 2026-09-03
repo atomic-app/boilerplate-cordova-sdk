@@ -111,13 +111,18 @@ jobs:
           # later non-interactive bash process - including the ones rbenv spawns
           # internally - re-sources BASH_ENV and re-runs it, recursively forking rbenv
           # until the VM runs out of processes.
+          #
+          # Deliberately not `rbenv global 3.3.6`: this image already has CocoaPods
+          # installed under its own pre-existing Ruby (3.4.7), which `cordova platform
+          # add ios` needs later for the push plugin's install hook. Changing the
+          # global version would break `pod` for that step, so 3.3.6 is only ever
+          # selected explicitly via RBENV_VERSION on the commands that need it.
           name: Use Ruby 3.3.x
           command: |
             HOMEBREW_NO_INSTALL_UPGRADE=1 brew install rbenv ruby-build
             eval "$(rbenv init - bash)"
             rbenv install -s 3.3.6
-            rbenv global 3.3.6
-            gem install bundler -v 2.5.22
+            RBENV_VERSION=3.3.6 gem install bundler -v 2.5.22
             echo 'export PATH="$HOME/.rbenv/shims:$PATH"' >> "$BASH_ENV"
       - save_cache:
           key: rbenv-ruby-3.3.6-{{ arch }}
@@ -125,14 +130,14 @@ jobs:
             - ~/.rbenv/versions/3.3.6
       - run:
           name: Install Ruby gems
-          command: bundle install
+          command: RBENV_VERSION=3.3.6 bundle install
       - inject_atomic_token
       - run:
           name: Add iOS platform
           command: npx cordova platform add ios@7.1.1
       - run:
           name: Build development-signed ipa
-          command: bundle exec fastlane build_test_ipa
+          command: RBENV_VERSION=3.3.6 bundle exec fastlane build_test_ipa
       - run:
           name: Clean up signing assets
           command: rm -f DevelopmentCertificate.p12
@@ -186,6 +191,13 @@ jobs:
               exit 1
             fi
             echo "export JAVA_HOME=$JAVA8_HOME" >> "$BASH_ENV"
+      - run:
+          # Same era mismatch as the Gradle/JDK step above: cimg/android:2026.07 only
+          # ships build-tools 35.0.0+ and platforms android-34+, but cordova-android
+          # 10.1.2's defaults (cdv-gradle-config-defaults.json) pin
+          # MIN_BUILD_TOOLS_VERSION 30.0.3 and SDK_VERSION 30.
+          name: Install Android build-tools 30.0.3 and platform android-30 (cordova-android 10.1.2's pin)
+          command: yes | sdkmanager "platforms;android-30" "build-tools;30.0.3"
       - inject_atomic_token
       - run:
           name: Add Android platform
