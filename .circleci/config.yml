@@ -94,15 +94,10 @@ jobs:
             PROFILE_PATH="$PROFILE_DIR/Development.mobileprovision"
             echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > "$PROFILE_PATH"
 
-            # The provisioningProfiles hash in fastlane/Fastfile needs the profile's
-            # display name, not its filename - pull it out of the profile itself so
-            # there's no separate value to keep in sync by hand. Same for the team ID:
             # cordova's generated Xcode project has no DEVELOPMENT_TEAM set (that's
             # normally chosen by hand in Xcode's Signing & Capabilities UI), so
-            # fastlane/Fastfile forces manual signing and needs this to do it.
-            PROFILE_NAME=$(security cms -D -i "$PROFILE_PATH" | plutil -extract Name raw -o - -)
+            # fastlane/Fastfile needs this to set it explicitly for automatic signing.
             TEAM_ID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract TeamIdentifier.0 raw -o - -)
-            echo "export IOS_PROVISIONING_PROFILE_NAME='${PROFILE_NAME}'" >> "$BASH_ENV"
             echo "export IOS_TEAM_ID='${TEAM_ID}'" >> "$BASH_ENV"
       - restore_cache:
           key: rbenv-ruby-3.3.6-{{ arch }}

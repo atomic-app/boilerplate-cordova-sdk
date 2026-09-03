@@ -1,8 +1,6 @@
 opt_out_usage
 default_platform(:ios)
 
-BUNDLE_ID = File.read(File.join(__dir__, "..", "config.xml"))[/ios-CFBundleIdentifier="([^"]+)"/, 1]
-
 platform :ios do
   before_all do
     setup_circle_ci
@@ -53,11 +51,14 @@ platform :ios do
       output_directory: "build/ipa",
       output_name: "HelloCordova.ipa",
       xcargs: "-allowProvisioningUpdates",
+      # No provisioningProfiles mapping here: providing one implicitly forces
+      # signingStyle "manual" for this export step too (visible in gym's generated
+      # export options plist), which hits the exact same "Xcode managed profile"
+      # rejection the archive step had, just at export instead. Automatic export
+      # matches the archive step's signing and just reuses whatever's embedded in
+      # the archive.
       export_options: {
-        method: "development",
-        provisioningProfiles: {
-          BUNDLE_ID => ENV["IOS_PROVISIONING_PROFILE_NAME"]
-        }
+        method: "development"
       }
     )
   end
