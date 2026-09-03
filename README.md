@@ -21,7 +21,11 @@ CocoaPods requires a UTF-8 terminal. If `pod install` fails with a Unicode error
    npm install
    ```
 
-2. Open `www/js/index.js` and set the five constants in `setupAtomic()` with values from the Atomic Workbench. The last value is a JWT. You can generate one by following the [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK).
+2. Open `www/js/index.js` and set the five constants in `setupAtomic()` with values from the Atomic Workbench. The last value is a JWT, signed per the [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). Pull `keys/atomic_private.pem` from 1Password into a `keys/` folder at the repo root, then run:
+
+   ```bash
+   npm run generate-token
+   ```
 
    > The hardcoded JWT is a demo shortcut. In a real integration, the session delegate must return a fresh token each time the SDK requests one.
 
@@ -66,3 +70,18 @@ To test: run the app on a device, tap "Log in", send the app to the background, 
 ## Android
 
 The Android app requires a `google-services.json` file in the repo root before it builds. In the Firebase setup, use the `id` attribute of the `widget` element in `config.xml` as the application ID. Add the platform with `cordova platform add android`, then open `platforms/android` in Android Studio and run from there. Emulators on API 33 and above do not prompt for notification permission when started from the Cordova CLI.
+
+## CI builds
+
+Every push builds unsigned artifacts on CircleCI: an iOS Simulator build (zipped `.app`, no code signing) and an Android debug `.apk`. Both are attached to the job as artifacts — download them from the CircleCI job page.
+
+- iOS: unzip `HelloCordova.app.zip` and install with `xcrun simctl install <device_id> HelloCordova.app`.
+- Android: install with `adb install app-debug.apk`.
+
+The Android job needs a `GOOGLE_SERVICES` project environment variable (the contents of `google-services.json`, base64-encoded) set in CircleCI project settings — same convention as `atomic-sdk-flutter` — it fails with a clear message until that's added.
+
+Both jobs also need an `ATOMIC_PRIVATE_KEY` project environment variable (the contents of `keys/atomic_private.pem`, base64-encoded, from 1Password) set in CircleCI project settings. Each build generates a fresh JWT from it via `scripts/generate-token.js` and substitutes it into `www/js/index.js` — nothing token-shaped is ever committed to source or stored as a static secret, so there's nothing to expire or refresh.
+
+Optionally, set an `ATOMIC_CUSTOMER_ID` project environment variable to control which Workbench test user the generated token authenticates as. It's a plain string (not base64), so CircleCI exposes it to the build automatically — no extra setup step needed. Without it, `scripts/generate-token.js` falls back to its hardcoded default test user.
+
+These are debug/simulator builds only, not signed for a physical device or BrowserStack. Real-device signing (Apple distribution cert + provisioning profile, Android signing keystore) would need to be added the same way the other Atomic SDK sample-app pipelines do it, as a follow-up.

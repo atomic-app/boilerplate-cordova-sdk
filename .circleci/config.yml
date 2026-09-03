@@ -19,10 +19,26 @@ jobs:
       - macos/install-rosetta
       - checkout
       - run:
+          name: Restore Atomic private key
+          command: |
+            if [ -z "$ATOMIC_PRIVATE_KEY" ]; then
+              echo "ATOMIC_PRIVATE_KEY is not set."
+              echo "Add it as a project environment variable (base64-encoded keys/atomic_private.pem, from 1Password) in CircleCI project settings, then re-run."
+              exit 1
+            fi
+            mkdir -p keys
+            echo "$ATOMIC_PRIVATE_KEY" | base64 --decode > keys/atomic_private.pem
+      - run:
           name: Install dependencies
           command: |
             npm install -g cordova
             npm install
+      - run:
+          name: Generate and inject a fresh Atomic request token
+          command: |
+            TOKEN=$(node scripts/generate-token.js)
+            perl -pi -e "s/(ATOMIC_REQUEST_TOKEN_STRING = ')[^']*(')/\$1${TOKEN}\$2/" www/js/index.js
+            rm keys/atomic_private.pem
       - run:
           name: Add iOS platform
           command: cordova platform add ios@7.1.1
@@ -53,6 +69,11 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install Node.js
+          command: |
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+      - run:
           # Project environment variable, not a context var - matches atomic-sdk-flutter's
           # initial_setup_android convention.
           name: Add Google services to App
@@ -64,10 +85,26 @@ jobs:
             fi
             echo "$GOOGLE_SERVICES" | base64 --decode > google-services.json
       - run:
+          name: Restore Atomic private key
+          command: |
+            if [ -z "$ATOMIC_PRIVATE_KEY" ]; then
+              echo "ATOMIC_PRIVATE_KEY is not set."
+              echo "Add it as a project environment variable (base64-encoded keys/atomic_private.pem, from 1Password) in CircleCI project settings, then re-run."
+              exit 1
+            fi
+            mkdir -p keys
+            echo "$ATOMIC_PRIVATE_KEY" | base64 --decode > keys/atomic_private.pem
+      - run:
           name: Install dependencies
           command: |
             npm install -g cordova
             npm install
+      - run:
+          name: Generate and inject a fresh Atomic request token
+          command: |
+            TOKEN=$(node scripts/generate-token.js)
+            perl -pi -e "s/(ATOMIC_REQUEST_TOKEN_STRING = ')[^']*(')/\$1${TOKEN}\$2/" www/js/index.js
+            rm keys/atomic_private.pem
       - run:
           name: Add Android platform
           command: cordova platform add android
