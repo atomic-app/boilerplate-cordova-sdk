@@ -30,9 +30,7 @@ commands:
             echo "$ATOMIC_PRIVATE_KEY" | base64 --decode > keys/atomic_private.pem
       - run:
           name: Install dependencies
-          command: |
-            sudo npm install -g cordova
-            npm install
+          command: npm install
       - run:
           name: Generate and inject a fresh Atomic request token
           command: |
@@ -52,7 +50,7 @@ jobs:
       - inject_atomic_token
       - run:
           name: Add iOS platform
-          command: cordova platform add ios@7.1.1
+          command: npx cordova platform add ios@7.1.1
       - run:
           name: Build for iOS Simulator (unsigned)
           command: |
@@ -131,7 +129,7 @@ jobs:
       - inject_atomic_token
       - run:
           name: Add iOS platform
-          command: cordova platform add ios@7.1.1
+          command: npx cordova platform add ios@7.1.1
       - run:
           name: Build development-signed ipa
           command: bundle exec fastlane build_test_ipa
@@ -165,13 +163,36 @@ jobs:
               exit 1
             fi
             echo "$GOOGLE_SERVICES" | base64 --decode > google-services.json
+      - run:
+          # cimg/android:2026.07 only ships Gradle 9.6.1, whose Groovy 4 runtime
+          # can't resolve groovy.util.XmlParser - a class cordova-android 10.1.2's
+          # own cordova.gradle uses directly, so its Gradle wrapper bootstrap step
+          # fails with "unable to resolve class XmlParser" under the image's default
+          # Gradle. cordova-android 10.1.2's own defaults (cdv-gradle-config-defaults.json)
+          # pin Gradle 7.1.1 and AGP 4.2.2, so install and use exactly that instead -
+          # not just "any pre-Groovy-4 Gradle" - to match what this cordova-android
+          # release actually expects. AGP 4.2.2's era also expects JDK 8, not the
+          # image's default JDK 21, so switch that too.
+          name: Install Gradle 7.1.1 (matches cordova-android 10.1.2)
+          command: |
+            curl -fsSL https://services.gradle.org/distributions/gradle-7.1.1-bin.zip -o /tmp/gradle-7.1.1.zip
+            sudo unzip -q -d /usr/local /tmp/gradle-7.1.1.zip
+            rm /tmp/gradle-7.1.1.zip
+            echo 'export PATH="/usr/local/gradle-7.1.1/bin:$PATH"' >> "$BASH_ENV"
+            JAVA8_HOME=$(find /usr/lib/jvm -maxdepth 1 -iname "*java-8*" | head -1)
+            if [ -z "$JAVA8_HOME" ]; then
+              echo "No JDK 8 found under /usr/lib/jvm on this image - cimg/android:2026.07 was expected to ship one alongside 17/21."
+              ls /usr/lib/jvm
+              exit 1
+            fi
+            echo "export JAVA_HOME=$JAVA8_HOME" >> "$BASH_ENV"
       - inject_atomic_token
       - run:
           name: Add Android platform
-          command: cordova platform add android
+          command: npx cordova platform add android
       - run:
           name: Build debug APK
-          command: cordova build android --debug
+          command: npx cordova build android --debug
       - store_artifacts:
           path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
           destination: app-debug.apk

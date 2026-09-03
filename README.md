@@ -76,7 +76,7 @@ The Android app requires a `google-services.json` file in the repo root before i
 Every push builds two artifacts on CircleCI, attached to their job as artifacts — download them from the CircleCI job page:
 
 - **iOS device** (`build_ios_device_ipa`): development-signed `HelloCordova.ipa`, installable on registered test-device UDIDs. This is for testing only — it is not a TestFlight/App Store build.
-- **Android** (`build_android_debug`): debug `.apk`. Install with `adb install app-debug.apk`.
+- **Android** (`build_android_debug`): debug `.apk`. Install with `adb install app-debug.apk`. This job installs Gradle 7.1.1 and switches to JDK 8 before building — `cordova-android@10.1.2`'s own build scripts use `groovy.util.XmlParser` directly, which the `cimg/android:2026.07` image's default Gradle 9 (Groovy 4) can't resolve. Gradle 7.1.1 / JDK 8 match what this cordova-android release's own defaults (`AGP_VERSION: 4.2.2`) actually expect, not just "any older Gradle."
 
 A third, **iOS Simulator** (`build_ios_simulator`, unsigned zipped `.app`), is opt-in — it doesn't run on every push. Trigger it from CircleCI's "Trigger Pipeline" with the boolean parameter `build_for_simulator` set to `true`. Unzip and install with `xcrun simctl install <device_id> HelloCordova.app`.
 
