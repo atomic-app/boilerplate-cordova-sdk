@@ -1,0 +1,85 @@
+version: 2.1
+
+orbs:
+  macos: circleci/macos@2.5.2
+
+executors:
+  latest_xcode:
+    macos:
+      xcode: "26.2.0"
+    resource_class: m4pro.medium
+
+jobs:
+  build_ios_simulator:
+    executor: latest_xcode
+    environment:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - macos/install-rosetta
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            npm install -g cordova
+            npm install
+      - run:
+          name: Add iOS platform
+          command: cordova platform add ios@7.1.1
+      - run:
+          name: Build for iOS Simulator (unsigned)
+          command: |
+            xcodebuild \
+              -workspace platforms/ios/HelloCordova.xcworkspace \
+              -scheme HelloCordova \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              -derivedDataPath build \
+              CODE_SIGNING_ALLOWED=NO \
+              clean build
+      - run:
+          name: Zip the simulator app
+          command: |
+            cd build/Build/Products/Debug-iphonesimulator
+            zip -r HelloCordova.app.zip HelloCordova.app
+      - store_artifacts:
+          path: build/Build/Products/Debug-iphonesimulator/HelloCordova.app.zip
+          destination: HelloCordova.app.zip
+
+  build_android_debug:
+    docker:
+      - image: cimg/android:2026.07
+    resource_class: large
+    steps:
+      - checkout
+      - run:
+          # Project environment variable, not a context var - matches atomic-sdk-flutter's
+          # initial_setup_android convention.
+          name: Add Google services to App
+          command: |
+            if [ -z "$GOOGLE_SERVICES" ]; then
+              echo "GOOGLE_SERVICES is not set."
+              echo "Add it as a project environment variable (base64-encoded google-services.json) in CircleCI project settings, then re-run."
+              exit 1
+            fi
+            echo "$GOOGLE_SERVICES" | base64 --decode > google-services.json
+      - run:
+          name: Install dependencies
+          command: |
+            npm install -g cordova
+            npm install
+      - run:
+          name: Add Android platform
+          command: cordova platform add android
+      - run:
+          name: Build debug APK
+          command: cordova build android --debug
+      - store_artifacts:
+          path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          destination: app-debug.apk
+
+workflows:
+  build-apps:
+    jobs:
+      - build_ios_simulator
+      - build_android_debug
