@@ -17,12 +17,28 @@ platform :ios do
 
   desc "Builds a development-signed ipa for device testing"
   lane :build_test_ipa do
-    # cordova platform add ios generates a fresh Xcode project with no DEVELOPMENT_TEAM
-    # set (normally picked by hand in Xcode's Signing & Capabilities UI), so archiving
-    # fails with "requires a development team" unless forced here. xcargs forces the
-    # same manual signing for the archive step that export_options already specifies
-    # for the export step, rather than relying on whatever signing style the generated
-    # project happens to default to.
+    # cordova platform add ios generates a fresh Xcode project with Automatic signing
+    # and no DEVELOPMENT_TEAM set (normally picked by hand in Xcode's Signing &
+    # Capabilities UI), which fails to archive both because there's no team and
+    # because Automatic signing needs a logged-in Apple ID account to resolve
+    # against, which this CI machine doesn't have.
+    #
+    # update_code_signing_settings, scoped to just the HelloCordova target, switches
+    # only that target to manual signing with our team/profile/identity - as opposed
+    # to setting CODE_SIGN_STYLE/PROVISIONING_PROFILE_SPECIFIER via build_ios_app's
+    # xcargs, which would apply to every target in the workspace and break the
+    # Firebase pods (FirebaseCoreDiagnostics, GoogleUtilities, nanopb, ...): those are
+    # libraries that reject having any provisioning profile assigned at all, and are
+    # left on whatever signing CocoaPods gave them.
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "platforms/ios/HelloCordova.xcodeproj",
+      team_id: ENV["IOS_TEAM_ID"],
+      code_sign_identity: "Apple Development",
+      profile_name: ENV["IOS_PROVISIONING_PROFILE_NAME"],
+      targets: ["HelloCordova"]
+    )
+
     build_ios_app(
       workspace: "platforms/ios/HelloCordova.xcworkspace",
       configuration: "Release",
@@ -31,7 +47,6 @@ platform :ios do
       clean: true,
       output_directory: "build/ipa",
       output_name: "HelloCordova.ipa",
-      xcargs: "DEVELOPMENT_TEAM=#{ENV['IOS_TEAM_ID']} CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=\"#{ENV['IOS_PROVISIONING_PROFILE_NAME']}\" CODE_SIGN_IDENTITY=\"Apple Development\"",
       export_options: {
         method: "development",
         provisioningProfiles: {

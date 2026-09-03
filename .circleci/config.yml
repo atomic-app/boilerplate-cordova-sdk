@@ -180,7 +180,15 @@ jobs:
           # SDK_VERSION 30. This has to run before the JDK 8 switch below: sdkmanager
           # itself requires JDK 17+ to run, and would fail under 8.
           name: Install Android build-tools 30.0.3 and platform android-30 (cordova-android 10.1.2's pin)
-          command: yes | sdkmanager "platforms;android-30" "build-tools;30.0.3"
+          command: |
+            # `yes` gets SIGPIPE (exit 141) once sdkmanager stops reading prompts and
+            # exits; under this shell's pipefail that would surface as the step's exit
+            # code even when sdkmanager itself succeeded. Turn pipefail off just for
+            # this line so the pipeline's exit code is sdkmanager's (the last command)
+            # rather than yes's, then restore it.
+            set +o pipefail
+            yes | sdkmanager "platforms;android-30" "build-tools;30.0.3"
+            set -o pipefail
       - run:
           # cimg/android:2026.07 only ships Gradle 9.6.1, whose Groovy 4 runtime
           # can't resolve groovy.util.XmlParser - a class cordova-android 10.1.2's
