@@ -4,6 +4,15 @@ parameters:
   build_for_simulator:
     type: boolean
     default: false
+  trigger_maestro_tests_ios:
+    type: boolean
+    default: true
+  trigger_maestro_tests_android:
+    type: boolean
+    default: true
+  source:
+    type: string
+    default: "CORDOVA"
 
 orbs:
   macos: circleci/macos@2.5.2
@@ -158,6 +167,23 @@ jobs:
       - store_artifacts:
           path: build/ipa/HelloCordova.ipa
           destination: HelloCordova.ipa
+      - run:
+          # Self-gated at runtime rather than via a separate workflow/job, since
+          # pipeline.parameters and pipeline.git.branch are plain compile-time text
+          # substitution here - this can just reuse the same build_ios_device_ipa job
+          # instead of duplicating it into a second one only to add this one step.
+          #
+          # NOTE: sdk-e2e-tests doesn't have a "cordova-ios" case yet (only
+          # swiftui/compose/rn/flutter) - until that's added there (registry.yaml,
+          # run.sh, a maestro/cordova suite), this will trigger a pipeline that fails
+          # immediately with "Invalid SDK".
+          name: Trigger maestro tests
+          command: |
+            if [ "<< pipeline.parameters.trigger_maestro_tests_ios >>" = "true" ] || [ "<< pipeline.git.branch >>" = "push-26.2.0" ]; then
+              ./bin/trigger-maestro-tests.sh triggerIOSTests "<< pipeline.parameters.source >>"
+            else
+              echo "Skipping maestro trigger (trigger_maestro_tests_ios=<< pipeline.parameters.trigger_maestro_tests_ios >>, branch=<< pipeline.git.branch >>)"
+            fi
 
   build_android_debug:
     docker:
@@ -231,12 +257,23 @@ jobs:
       - store_artifacts:
           path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
           destination: app-debug.apk
+      - run:
+          # See the equivalent step in build_ios_device_ipa for why this is
+          # self-gated at runtime rather than a separate workflow/job, and the
+          # sdk-e2e-tests caveat (no "cordova-android" case there yet either).
+          name: Trigger maestro tests
+          command: |
+            if [ "<< pipeline.parameters.trigger_maestro_tests_android >>" = "true" ] || [ "<< pipeline.git.branch >>" = "push-26.2.0" ]; then
+              ./bin/trigger-maestro-tests.sh triggerAndroidTests "<< pipeline.parameters.source >>"
+            else
+              echo "Skipping maestro trigger (trigger_maestro_tests_android=<< pipeline.parameters.trigger_maestro_tests_android >>, branch=<< pipeline.git.branch >>)"
+            fi
 
 workflows:
   build-apps:
     jobs:
       - build_ios_device_ipa
-      # - build_android_debug
+      - build_android_debug
 
   build_ios_simulator:
     when: << pipeline.parameters.build_for_simulator >>

@@ -94,3 +94,16 @@ Required CircleCI project environment variables:
 `ATOMIC_PRIVATE_KEY` and `ATOMIC_CUSTOMER_ID` are used the same way for all three builds: each generates a fresh JWT from the private key via `scripts/generate-token.js` and substitutes it into `www/js/index.js` — nothing token-shaped is ever committed to source or stored as a static secret, so there's nothing to expire or refresh.
 
 The `build_ios_device_ipa` job builds with Fastlane (`fastlane/Fastfile`, `Gemfile`), same pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` + `import_certificate` + `build_ios_app`, exported with `method: development`. There's no committed `Gemfile.lock` yet — the local Ruby available while setting this up was too old to generate one that would match CI's pinned Ruby (3.3.6, installed via `rbenv` in the job itself), so `bundle install` resolves fresh each run. Worth generating and committing one later for faster, more deterministic installs.
+
+### Triggering sdk-e2e-tests
+
+Both build jobs end with a "Trigger maestro tests" step (`bin/trigger-maestro-tests.sh`, same pattern as `atomic-sdk-react-native`/`atomic-sdk-flutter`) that POSTs to `sdk-e2e-tests`'s CircleCI pipeline API with the freshly built artifact's URL. It only actually fires when either:
+
+- the `trigger_maestro_tests_ios` / `trigger_maestro_tests_android` boolean pipeline parameters are passed as `true` via CircleCI's "Trigger Pipeline", or
+- the branch is `push-26.2.0`.
+
+Otherwise it's a no-op (logged, not skipped silently). An optional `source` string pipeline parameter (default `"CORDOVA"`) is passed through to the triggered pipeline as a label.
+
+This needs `CIRCLE_API_TOKEN_BH` available as an env var in these jobs — sibling repos get it via a CircleCI context (e.g. `context: ios`) attached to the job. That's not wired up here yet; add a `context:` to `build_ios_device_ipa`/`build_android_debug` once one is available for this project (referencing a context that doesn't exist yet breaks config validation for the whole pipeline, not just this step, so don't add it speculatively).
+
+**Important**: `sdk-e2e-tests` has no `cordova-ios`/`cordova-android` case yet — only `swiftui`, `compose`, `rn-ios`/`rn-android`, `flutter-ios`/`flutter-android` are wired up there (`registry.yaml`, `run.sh`, `runTestsBrowserstackDevice.sh`, `scripts.sh`). Until someone adds a `maestro/cordova` suite and registers it there, a triggered pipeline will fail immediately with "Invalid SDK" — this step fires correctly, but the other end isn't ready to receive it.
