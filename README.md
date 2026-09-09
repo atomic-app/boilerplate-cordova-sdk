@@ -75,8 +75,8 @@ The Android app requires a `google-services.json` file in the repo root before i
 
 Every push builds two artifacts on CircleCI, attached to their job as artifacts — download them from the CircleCI job page:
 
-- **iOS device** (`build_ios_device_ipa`): development-signed `HelloCordova.ipa`, installable on registered test-device UDIDs. This is for testing only — it is not a TestFlight/App Store build.
-- **Android** (`build_android_debug`): debug `.apk`. Install with `adb install app-debug.apk`. This job installs Gradle 7.1.1, switches to JDK 8, and installs Android build-tools 30.0.3 / platform android-30 before building — `cordova-android@10.1.2` is old enough that none of this matches what `cimg/android:2026.07` ships by default (Gradle 9/Groovy 4 can't resolve the `groovy.util.XmlParser` its build scripts use directly; the image's build-tools start at 35.0.0). All three versions come straight from this cordova-android release's own defaults (`GRADLE_VERSION`, `AGP_VERSION: 4.2.2`, `MIN_BUILD_TOOLS_VERSION`, `SDK_VERSION`), not arbitrary "older" choices.
+- **iOS device** (`trigger_maestro_tests_ios`): development-signed `HelloCordova.ipa`, installable on registered test-device UDIDs. This is for testing only — it is not a TestFlight/App Store build.
+- **Android** (`trigger_maestro_tests_android`): debug `.apk`. Install with `adb install app-debug.apk`. This job installs Gradle 7.1.1, switches to JDK 8, and installs Android build-tools 30.0.3 / platform android-30 before building — `cordova-android@10.1.2` is old enough that none of this matches what `cimg/android:2026.07` ships by default (Gradle 9/Groovy 4 can't resolve the `groovy.util.XmlParser` its build scripts use directly; the image's build-tools start at 35.0.0). All three versions come straight from this cordova-android release's own defaults (`GRADLE_VERSION`, `AGP_VERSION: 4.2.2`, `MIN_BUILD_TOOLS_VERSION`, `SDK_VERSION`), not arbitrary "older" choices.
 
 A third, **iOS Simulator** (`build_ios_simulator`, unsigned zipped `.app`), is opt-in — it doesn't run on every push. Trigger it from CircleCI's "Trigger Pipeline" with the boolean parameter `build_for_simulator` set to `true`. Unzip and install with `xcrun simctl install <device_id> HelloCordova.app`.
 
@@ -93,7 +93,7 @@ Required CircleCI project environment variables:
 
 `ATOMIC_PRIVATE_KEY` and `ATOMIC_CUSTOMER_ID` are used the same way for all three builds: each generates a fresh JWT from the private key via `scripts/generate-token.js` and substitutes it into `www/js/index.js` — nothing token-shaped is ever committed to source or stored as a static secret, so there's nothing to expire or refresh.
 
-The `build_ios_device_ipa` job builds with Fastlane (`fastlane/Fastfile`, `Gemfile`), same pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` + `import_certificate` + `build_ios_app`, exported with `method: development`. There's no committed `Gemfile.lock` yet — the local Ruby available while setting this up was too old to generate one that would match CI's pinned Ruby (3.3.6, installed via `rbenv` in the job itself), so `bundle install` resolves fresh each run. Worth generating and committing one later for faster, more deterministic installs.
+The `trigger_maestro_tests_ios` job builds with Fastlane (`fastlane/Fastfile`, `Gemfile`), same pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` + `import_certificate` + `build_ios_app`, exported with `method: development`. There's no committed `Gemfile.lock` yet — the local Ruby available while setting this up was too old to generate one that would match CI's pinned Ruby (3.3.6, installed via `rbenv` in the job itself), so `bundle install` resolves fresh each run. Worth generating and committing one later for faster, more deterministic installs.
 
 ### Triggering sdk-e2e-tests
 
@@ -104,6 +104,6 @@ Both build jobs end with a "Trigger maestro tests" step (`bin/trigger-maestro-te
 
 Otherwise it's a no-op (logged, not skipped silently). An optional `source` string pipeline parameter (default `"CORDOVA"`) is passed through to the triggered pipeline as a label.
 
-This needs `CIRCLE_API_TOKEN_BH` available as an env var in these jobs — sibling repos get it via a CircleCI context (e.g. `context: ios`) attached to the job. That's not wired up here yet; add a `context:` to `build_ios_device_ipa`/`build_android_debug` once one is available for this project (referencing a context that doesn't exist yet breaks config validation for the whole pipeline, not just this step, so don't add it speculatively).
+This needs `CIRCLE_API_TOKEN_BH` available as an env var in these jobs — sibling repos get it via a CircleCI context (e.g. `context: ios`) attached to the job. That's not wired up here yet; add a `context:` to `trigger_maestro_tests_ios`/`trigger_maestro_tests_android` once one is available for this project (referencing a context that doesn't exist yet breaks config validation for the whole pipeline, not just this step, so don't add it speculatively).
 
 **Important**: `sdk-e2e-tests` has no `cordova-ios`/`cordova-android` case yet — only `swiftui`, `compose`, `rn-ios`/`rn-android`, `flutter-ios`/`flutter-android` are wired up there (`registry.yaml`, `run.sh`, `runTestsBrowserstackDevice.sh`, `scripts.sh`). Until someone adds a `maestro/cordova` suite and registers it there, a triggered pipeline will fail immediately with "Invalid SDK" — this step fires correctly, but the other end isn't ready to receive it.

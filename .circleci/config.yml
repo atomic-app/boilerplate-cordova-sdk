@@ -80,7 +80,7 @@ jobs:
           path: build/Build/Products/Debug-iphonesimulator/HelloCordova.app.zip
           destination: HelloCordova.app.zip
 
-  build_ios_device_ipa:
+  trigger_maestro_tests_ios:
     executor: latest_xcode
     environment:
       LANG: en_US.UTF-8
@@ -170,7 +170,7 @@ jobs:
       - run:
           # Self-gated at runtime rather than via a separate workflow/job, since
           # pipeline.parameters and pipeline.git.branch are plain compile-time text
-          # substitution here - this can just reuse the same build_ios_device_ipa job
+          # substitution here - this can just reuse the same trigger_maestro_tests_ios job
           # instead of duplicating it into a second one only to add this one step.
           #
           # NOTE: sdk-e2e-tests doesn't have a "cordova-ios" case yet (only
@@ -185,7 +185,7 @@ jobs:
               echo "Skipping maestro trigger (trigger_maestro_tests_ios=<< pipeline.parameters.trigger_maestro_tests_ios >>, branch=<< pipeline.git.branch >>)"
             fi
 
-  build_android_debug:
+  trigger_maestro_tests_android:
     docker:
       - image: cimg/android:2026.07
     resource_class: large
@@ -258,7 +258,7 @@ jobs:
           path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
           destination: app-debug.apk
       - run:
-          # See the equivalent step in build_ios_device_ipa for why this is
+          # See the equivalent step in trigger_maestro_tests_ios for why this is
           # self-gated at runtime rather than a separate workflow/job, and the
           # sdk-e2e-tests caveat (no "cordova-android" case there yet either).
           name: Trigger maestro tests
@@ -272,8 +272,8 @@ jobs:
 workflows:
   build-apps:
     jobs:
-      - build_ios_device_ipa
-      - build_android_debug
+      - trigger_maestro_tests_ios
+      - trigger_maestro_tests_android
 
   build_ios_simulator:
     when: << pipeline.parameters.build_for_simulator >>

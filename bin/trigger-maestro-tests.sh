@@ -17,7 +17,7 @@ function triggeriOSTests() {
                     \"branch\":\"qa-342-cordova-maestro-tests\",
                     \"parameters\":
                         {
-                            \"app-url\":\"https://output.circle-artifacts.com/output/job/f0add437-dfc8-47aa-a410-ad0494d52264/artifacts/0/HelloCordova.ipa\",
+                            \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/HelloCordova.ipa\",
                             \"sdk\":\"cordova-ios\",
                             \"version\":\"cordova-ios-$CIRCLE_BRANCH\",
                             \"source\":\"$source\"
@@ -40,7 +40,7 @@ function triggerAndroidTests() {
                     \"branch\":\"qa-342-cordova-maestro-tests\",
                     \"parameters\":
                         {
-                            \"app-url\":\"https://output.circle-artifacts.com/output/job/6d8592a6-2a98-493f-94ee-d0fb24f442a6/artifacts/0/app-debug.apk\",
+                            \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/app-debug.apk\",
                             \"sdk\":\"cordova-android\",
                             \"version\":\"cordova-android-$CIRCLE_BRANCH\",
                             \"source\":\"$source\"
