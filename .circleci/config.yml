@@ -9,7 +9,7 @@ parameters:
     default: true
   trigger_maestro_tests_android:
     type: boolean
-    default: true
+    default: false
   source:
     type: string
     default: "CORDOVA"
@@ -180,7 +180,7 @@ jobs:
           name: Trigger maestro tests
           command: |
             if [ "<< pipeline.parameters.trigger_maestro_tests_ios >>" = "true" ] || [ "<< pipeline.git.branch >>" = "push-26.2.0" ]; then
-              ./bin/trigger-maestro-tests.sh triggerIOSTests "<< pipeline.parameters.source >>"
+              ./bin/trigger-maestro-tests.sh triggeriOSTests "<< pipeline.parameters.source >>"
             else
               echo "Skipping maestro trigger (trigger_maestro_tests_ios=<< pipeline.parameters.trigger_maestro_tests_ios >>, branch=<< pipeline.git.branch >>)"
             fi
