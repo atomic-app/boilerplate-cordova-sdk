@@ -6,10 +6,10 @@ parameters:
     default: false
   trigger_maestro_tests_ios:
     type: boolean
-    default: true
+    default: false
   trigger_maestro_tests_android:
     type: boolean
-    default: false
+    default: true
   source:
     type: string
     default: "CORDOVA"
@@ -208,45 +208,33 @@ jobs:
             fi
             echo "$GOOGLE_SERVICES" | base64 --decode > google-services.json
       - run:
-          # cimg/android:2026.07 only ships build-tools 35.0.0+ and platforms
-          # android-34+, but cordova-android 10.1.2's defaults
-          # (cdv-gradle-config-defaults.json) pin MIN_BUILD_TOOLS_VERSION 30.0.3 and
-          # SDK_VERSION 30. This has to run before the JDK 8 switch below: sdkmanager
-          # itself requires JDK 17+ to run, and would fail under 8.
-          name: Install Android build-tools 30.0.3 and platform android-30 (cordova-android 10.1.2's pin)
+          # cordova-android@14.0.1's own defaults (cdv-gradle-config-defaults.json)
+          # pin SDK_VERSION 35 / MIN_BUILD_TOOLS_VERSION 35.0.0 / AGP_VERSION 8.7.3 -
+          # all already covered by cimg/android:2026.07's own preinstalled build-tools
+          # (35.0.0+) and platforms (android-34+), so no sdkmanager step is needed
+          # here (unlike the old cordova-android@10.1.2 pin, which needed build-tools
+          # 30.0.3/platform android-30 installed by hand).
+          #
+          # Gradle still needs an explicit install: cordova-android's own cordova.gradle
+          # uses groovy.util.XmlParser directly, which the image's default Gradle 9.6.1
+          # (Groovy 4) can't resolve ("unable to resolve class XmlParser") - this isn't
+          # fixed until cordova-android 15.1.0. Gradle 8.13 matches this release's
+          # GRADLE_VERSION default exactly (still pre-Groovy-4) and pairs with AGP
+          # 8.7.3's documented minimum of JDK 17, so switch off the image's default
+          # JDK 21 too.
+          name: Install Gradle 8.13 and switch to JDK 17 (matches cordova-android 14.0.1)
           command: |
-            # `yes` gets SIGPIPE (exit 141) once sdkmanager stops reading prompts and
-            # exits; under this shell's pipefail that would surface as the step's exit
-            # code even when sdkmanager itself succeeded. Turn pipefail off just for
-            # this line so the pipeline's exit code is sdkmanager's (the last command)
-            # rather than yes's, then restore it.
-            set +o pipefail
-            yes | sdkmanager "platforms;android-30" "build-tools;30.0.3"
-            set -o pipefail
-      - run:
-          # cimg/android:2026.07 only ships Gradle 9.6.1, whose Groovy 4 runtime
-          # can't resolve groovy.util.XmlParser - a class cordova-android 10.1.2's
-          # own cordova.gradle uses directly, so its Gradle wrapper bootstrap step
-          # fails with "unable to resolve class XmlParser" under the image's default
-          # Gradle. cordova-android 10.1.2's own defaults (cdv-gradle-config-defaults.json)
-          # pin Gradle 7.1.1 and AGP 4.2.2, so install and use exactly that instead -
-          # not just "any pre-Groovy-4 Gradle" - to match what this cordova-android
-          # release actually expects. AGP 4.2.2's era also expects JDK 8, not the
-          # image's default JDK 21, so switch that too - after the sdkmanager step
-          # above, since that needs JDK 17+ to run itself.
-          name: Install Gradle 7.1.1 (matches cordova-android 10.1.2)
-          command: |
-            curl -fsSL https://services.gradle.org/distributions/gradle-7.1.1-bin.zip -o /tmp/gradle-7.1.1.zip
-            sudo unzip -q -d /usr/local /tmp/gradle-7.1.1.zip
-            rm /tmp/gradle-7.1.1.zip
-            echo 'export PATH="/usr/local/gradle-7.1.1/bin:$PATH"' >> "$BASH_ENV"
-            JAVA8_HOME=$(find /usr/lib/jvm -maxdepth 1 -iname "*java-8*" | head -1)
-            if [ -z "$JAVA8_HOME" ]; then
-              echo "No JDK 8 found under /usr/lib/jvm on this image - cimg/android:2026.07 was expected to ship one alongside 17/21."
+            curl -fsSL https://services.gradle.org/distributions/gradle-8.13-bin.zip -o /tmp/gradle-8.13.zip
+            sudo unzip -q -d /usr/local /tmp/gradle-8.13.zip
+            rm /tmp/gradle-8.13.zip
+            echo 'export PATH="/usr/local/gradle-8.13/bin:$PATH"' >> "$BASH_ENV"
+            JAVA17_HOME=$(find /usr/lib/jvm -maxdepth 1 -iname "*java-17*" | head -1)
+            if [ -z "$JAVA17_HOME" ]; then
+              echo "No JDK 17 found under /usr/lib/jvm on this image - cimg/android:2026.07 was expected to ship one alongside 8/21."
               ls /usr/lib/jvm
               exit 1
             fi
-            echo "export JAVA_HOME=$JAVA8_HOME" >> "$BASH_ENV"
+            echo "export JAVA_HOME=$JAVA17_HOME" >> "$BASH_ENV"
       - inject_atomic_token
       - run:
           name: Add Android platform
