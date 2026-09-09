@@ -6,7 +6,7 @@ parameters:
     default: false
   trigger_maestro_tests_ios:
     type: boolean
-    default: false
+    default: true
   trigger_maestro_tests_android:
     type: boolean
     default: true
@@ -43,8 +43,7 @@ commands:
       - run:
           name: Generate and inject a fresh Atomic request token
           command: |
-            TOKEN=$(node scripts/generate-token.js)
-            perl -pi -e "s/(ATOMIC_REQUEST_TOKEN_STRING = ')[^']*(')/\$1${TOKEN}\$2/" www/js/index.js
+            node scripts/generate-token.js
             rm keys/atomic_private.pem
 
 jobs:
