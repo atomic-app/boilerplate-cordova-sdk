@@ -8,8 +8,6 @@
     <content src="index.html" />
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
-    <allow-navigation href="blob:*" />
-    <!-- <allow-navigation href="blob:https://localhost/" /> -->
     <!-- Must be "about:*", not "about:blank". CDVAllowList grants the empty-host
          exemption only to file: and content:, so an "about:blank" entry parses as
          host="blank" and never matches, because a real about: URL has a nil host.

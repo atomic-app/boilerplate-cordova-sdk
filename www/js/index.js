@@ -99,6 +99,7 @@ function setupPushNotifications() {
       alert: 'true',
       badge: 'true',
       sound: 'true',
+      forceShow: 'true',
     },
   });
 
@@ -113,7 +114,7 @@ function setupPushNotifications() {
   });
 
   push.on('notification', (data) => {
-    console.log('onNotification', data);
+    console.log('onNotification: %j', data);
 
     const notificationData = AtomicSDK.notificationFromPushPayload(
       data.additionalData
