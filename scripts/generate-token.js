@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 
-const DEFAULT_CUSTOMER_ID = '5f9f1cc3-57e8-527a-9327-df8f89b2a999';
+const DEFAULT_CUSTOMER_ID = '3e0bab06-be2d-4126-a01f-3643805c459b';
 
 const privateKeyPath = process.env.ATOMIC_PRIVATE_KEY_PATH || path.join(__dirname, '..', 'keys', 'atomic_private.pem');
 const customerId = process.env.ATOMIC_CUSTOMER_ID || DEFAULT_CUSTOMER_ID;
