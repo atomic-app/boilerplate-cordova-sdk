@@ -24,6 +24,13 @@ let hasRegisteredForNotifications = false;
 let launcherInstance;
 let singleCardInstance;
 
+function setSingleCardHidden(hidden) {
+  const embed = document.querySelector('#embed');
+  if (!embed) return;
+  embed.inert = hidden;
+  embed.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+}
+
 async function registerDeviceForNotificationsWhenReady() {
   if (deviceToken && loggedIn && !hasRegisteredForNotifications) {
     console.log('Registering for notifications');
@@ -50,7 +57,7 @@ function setupAtomic() {
   // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
   const ATOMIC_STREAM_CONTAINER_ID = 'KGMlMeD8';
   // A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
-  const ATOMIC_REQUEST_TOKEN_STRING = '';
+  const ATOMIC_REQUEST_TOKEN_STRING = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZTBiYWIwNi1iZTJkLTQxMjYtYTAxZi0zNjQzODA1YzQ1OWIiLCJpYXQiOjE3ODkzNDE5NDAsImV4cCI6MTc4OTk0Njc0MH0.oQ9Y187ZmfTspcuk9R9uNQTTVuCcbbb7qjRLhfylHxSQhOolLRia_lcPQGP6Pss9fdrnq2QNRLhDGcRlRoMR1uBUu8bEPGxJEi2xuE9AFQssjc1vc1uH7j1_aYCbTrZBIYAUuZtxc5dnJ2qJ5cIa6oOUzKpk898JA3Cn1Pv22_tKS8cAGUUClTZL43IWAL8AqewflcX8KBZxWhhim0qrwGhIA4px92uPAAQ1mCa0sOGpS5xZIdqpPSiTnd3bUcdEOkOCjv8TpUzJ5L2YT2nE2ExrdXvRkig9RVQ3vBy7FVx6j1z8EDjI3RkwBcd91w-bgT8R_S-RIeOdvmEhFgU8wQ';
 
   AtomicSDK.initialise(ATOMIC_API_HOST, ATOMIC_API_KEY, ATOMIC_ENVIRONMENT_ID);
 
@@ -84,6 +91,15 @@ function setupAtomic() {
       cordova: {
         enabled: true,
       },
+    },
+    // The launcher overlay renders the same cards as the #embed single card
+    // view underneath it, rather than replacing it, so both are otherwise
+    // simultaneously present in the DOM/accessibility tree. Hide the single
+    // card view from assistive tech (and stop it intercepting touches) while
+    // the launcher is open, so there's only ever one visible/interactive
+    // copy of a given card at a time.
+    onLauncherToggled: (isOpen) => {
+      setSingleCardHidden(isOpen);
     },
   });
 
@@ -154,6 +170,7 @@ function logout() {
 
   singleCardInstance.stop();
   launcherInstance.stop();
+  setSingleCardHidden(false);
 }
 
 function registerObservers() {
