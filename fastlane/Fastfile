@@ -1,0 +1,65 @@
+opt_out_usage
+default_platform(:ios)
+
+platform :ios do
+  before_all do
+    setup_circle_ci
+
+    import_certificate(
+      keychain_name: ENV["MATCH_KEYCHAIN_NAME"],
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"],
+      certificate_path: "DevelopmentCertificate.p12",
+      certificate_password: ENV["IOS_CERTIFICATE_PASSWORD"] || ""
+    )
+  end
+
+  desc "Builds a development-signed ipa for device testing"
+  lane :build_test_ipa do
+    # cordova platform add ios generates a fresh Xcode project with Automatic signing
+    # but no DEVELOPMENT_TEAM set (normally picked by hand in Xcode's Signing &
+    # Capabilities UI), so archiving fails with "requires a development team" unless
+    # forced here.
+    #
+    # This has to stay on Automatic signing, not Manual: the provisioning profile
+    # ("iOS Team Provisioning Profile: ...") is one Xcode itself generated when the
+    # app was run locally on a real iPhone, and Xcode refuses to reference an
+    # "Xcode managed" profile like that by name under manual signing at all
+    # ("is Xcode managed, but signing settings require a manually managed profile").
+    # -allowProvisioningUpdates lets xcodebuild resolve it the same way Xcode's UI
+    # would; since the matching cert + profile are already installed locally (see
+    # .circleci/config.yml's "Setup code signing" step), this shouldn't need to
+    # reach Apple's servers or a signed-in Apple ID to do so.
+    #
+    # update_code_signing_settings is still scoped to just the HelloCordova target
+    # (not build_ios_app's xcargs) so it doesn't touch the Firebase pods
+    # (FirebaseCoreDiagnostics, GoogleUtilities, nanopb, ...): those are libraries
+    # that reject having any team/profile assigned at all, and are left on whatever
+    # signing CocoaPods gave them.
+    update_code_signing_settings(
+      use_automatic_signing: true,
+      path: "platforms/ios/HelloCordova.xcodeproj",
+      team_id: ENV["IOS_TEAM_ID"],
+      targets: ["HelloCordova"]
+    )
+
+    build_ios_app(
+      workspace: "platforms/ios/HelloCordova.xcworkspace",
+      configuration: "Release",
+      scheme: "HelloCordova",
+      silent: false,
+      clean: true,
+      output_directory: "build/ipa",
+      output_name: "HelloCordova.ipa",
+      xcargs: "-allowProvisioningUpdates",
+      # No provisioningProfiles mapping here: providing one implicitly forces
+      # signingStyle "manual" for this export step too (visible in gym's generated
+      # export options plist), which hits the exact same "Xcode managed profile"
+      # rejection the archive step had, just at export instead. Automatic export
+      # matches the archive step's signing and just reuses whatever's embedded in
+      # the archive.
+      export_options: {
+        method: "development"
+      }
+    )
+  end
+end

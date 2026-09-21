@@ -5,7 +5,8 @@
   "description": "A sample Apache Cordova application that responds to the deviceready event.",
   "main": "index.js",
   "scripts": {
-    "android": "cordova build android && cordova emulate android"
+    "android": "cordova build android && cordova emulate android",
+    "generate-token": "node scripts/generate-token.js"
   },
   "keywords": [
     "ecosystem:cordova"
@@ -16,7 +17,8 @@
     "@havesource/cordova-plugin-push": "^7.0.0",
     "cordova-android": "^14.0.1",
     "cordova-ios": "7.1.1",
-    "cordova-plugin-device": "^3.0.0"
+    "cordova-plugin-device": "^3.0.0",
+    "jsonwebtoken": "^9.0.3"
   },
   "cordova": {
     "platforms": [
@@ -26,7 +28,9 @@
     "plugins": {
       "cordova-plugin-device": {},
       "@havesource/cordova-plugin-push": {
-        "IOS_FIREBASE_MESSAGING_VERSION": "~> 10.29.0"
+        "IOS_FIREBASE_MESSAGING_VERSION": "~> 10.29.0",
+        "ANDROIDX_CORE_VERSION": "1.16.0",
+        "FCM_VERSION": "24.1.0"
       }
     }
   }

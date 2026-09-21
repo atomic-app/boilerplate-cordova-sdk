@@ -1,0 +1,268 @@
+version: 2.1
+
+parameters:
+  build_for_simulator:
+    type: boolean
+    default: false
+  trigger_maestro_tests_ios:
+    type: boolean
+    default: true
+  trigger_maestro_tests_android:
+    type: boolean
+    default: true
+  source:
+    type: string
+    default: "CORDOVA"
+
+orbs:
+  macos: circleci/macos@2.5.2
+
+executors:
+  latest_xcode:
+    macos:
+      xcode: "26.2.0"
+    resource_class: m4pro.medium
+
+commands:
+  inject_atomic_token:
+    description: "Install JS deps, then generate a fresh Atomic JWT from the private key and inject it into www/js/index.js"
+    steps:
+      - run:
+          name: Restore Atomic private key
+          command: |
+            if [ -z "$ATOMIC_PRIVATE_KEY" ]; then
+              echo "ATOMIC_PRIVATE_KEY is not set."
+              echo "Add it as a project environment variable (base64-encoded keys/atomic_private.pem, from 1Password) in CircleCI project settings, then re-run."
+              exit 1
+            fi
+            mkdir -p keys
+            echo "$ATOMIC_PRIVATE_KEY" | base64 --decode > keys/atomic_private.pem
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Generate and inject a fresh Atomic request token
+          command: |
+            node scripts/generate-token.js
+            rm keys/atomic_private.pem
+
+jobs:
+  build_ios_simulator:
+    executor: latest_xcode
+    environment:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - macos/install-rosetta
+      - checkout
+      - inject_atomic_token
+      - run:
+          name: Add iOS platform
+          command: npx cordova platform add ios@7.1.1
+      - run:
+          name: Build for iOS Simulator (unsigned)
+          command: |
+            xcodebuild \
+              -workspace platforms/ios/HelloCordova.xcworkspace \
+              -scheme HelloCordova \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              -derivedDataPath build \
+              CODE_SIGNING_ALLOWED=NO \
+              clean build
+      - run:
+          name: Zip the simulator app
+          command: |
+            cd build/Build/Products/Debug-iphonesimulator
+            zip -r HelloCordova.app.zip HelloCordova.app
+      - store_artifacts:
+          path: build/Build/Products/Debug-iphonesimulator/HelloCordova.app.zip
+          destination: HelloCordova.app.zip
+
+  trigger_maestro_tests_ios:
+    executor: latest_xcode
+    environment:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - macos/install-rosetta
+      - checkout
+      - run:
+          name: Setup code signing
+          command: |
+            if [ -z "$IOS_CERTIFICATE" ] || [ -z "$IOS_CERTIFICATE_PASSWORD" ] || [ -z "$IOS_PROVISIONING_PROFILE" ]; then
+              echo "IOS_CERTIFICATE, IOS_CERTIFICATE_PASSWORD and IOS_PROVISIONING_PROFILE must all be set as CircleCI project environment variables."
+              exit 1
+            fi
+
+            echo "$IOS_CERTIFICATE" | base64 --decode > DevelopmentCertificate.p12
+
+            PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+            mkdir -p "$PROFILE_DIR"
+            PROFILE_PATH="$PROFILE_DIR/Development.mobileprovision"
+            echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > "$PROFILE_PATH"
+
+            # cordova's generated Xcode project has no DEVELOPMENT_TEAM set (that's
+            # normally chosen by hand in Xcode's Signing & Capabilities UI), so
+            # fastlane/Fastfile needs this to set it explicitly for automatic signing.
+            TEAM_ID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract TeamIdentifier.0 raw -o - -)
+            echo "export IOS_TEAM_ID='${TEAM_ID}'" >> "$BASH_ENV"
+      - restore_cache:
+          key: rbenv-ruby-3.3.6-{{ arch }}
+      - run:
+          # Workaround for Ruby 3.4 + fastlane, same as atomic-sdk-flutter's iOS setup.
+          # rbenv install -s skips the from-source compile when the cache restore above
+          # already populated ~/.rbenv/versions/3.3.6.
+          #
+          # Only the shims dir goes into BASH_ENV, not `eval "$(rbenv init - bash)"`.
+          # rbenv is itself a bash script; putting the init eval in BASH_ENV means every
+          # later non-interactive bash process - including the ones rbenv spawns
+          # internally - re-sources BASH_ENV and re-runs it, recursively forking rbenv
+          # until the VM runs out of processes.
+          #
+          # Deliberately not `rbenv global 3.3.6`: this image already has CocoaPods
+          # installed under its own pre-existing Ruby (3.4.7), which `cordova platform
+          # add ios` needs later for the push plugin's install hook. Changing the
+          # global version would break `pod` for that step, so 3.3.6 is only ever
+          # selected explicitly via RBENV_VERSION on the commands that need it.
+          name: Use Ruby 3.3.x
+          command: |
+            HOMEBREW_NO_INSTALL_UPGRADE=1 brew install rbenv ruby-build
+            eval "$(rbenv init - bash)"
+            rbenv install -s 3.3.6
+            RBENV_VERSION=3.3.6 gem install bundler -v 2.5.22
+            echo 'export PATH="$HOME/.rbenv/shims:$PATH"' >> "$BASH_ENV"
+      - save_cache:
+          key: rbenv-ruby-3.3.6-{{ arch }}
+          paths:
+            - ~/.rbenv/versions/3.3.6
+      - run:
+          name: Install Ruby gems
+          command: RBENV_VERSION=3.3.6 bundle install
+      - inject_atomic_token
+      - run:
+          name: Add iOS platform
+          command: npx cordova platform add ios@7.1.1
+      - run:
+          # cordova-ios's own build-release.xcconfig hard-codes
+          # CODE_SIGN_IDENTITY = "iPhone Distribution" (meant for App Store/Ad Hoc
+          # builds), which conflicts with the Automatic signing this job forces via
+          # fastlane's update_code_signing_settings ("conflicting code signing
+          # identity"). build-extras.xcconfig is cordova-ios's own documented
+          # override point, included right after build-release.xcconfig sets that
+          # value - not a hack. Regenerated fresh by "Add iOS platform" above on
+          # every run, so this has to happen after that step, every time.
+          name: Override CODE_SIGN_IDENTITY for Automatic signing
+          command: |
+            echo 'CODE_SIGN_IDENTITY = Apple Development' >> platforms/ios/cordova/build-extras.xcconfig
+            echo 'CODE_SIGN_IDENTITY[sdk=iphoneos*] = Apple Development' >> platforms/ios/cordova/build-extras.xcconfig
+      - run:
+          name: Build development-signed ipa
+          command: RBENV_VERSION=3.3.6 bundle exec fastlane build_test_ipa
+      - run:
+          name: Clean up signing assets
+          command: rm -f DevelopmentCertificate.p12
+          when: always
+      - store_artifacts:
+          path: build/ipa/HelloCordova.ipa
+          destination: HelloCordova.ipa
+      - run:
+          # Self-gated at runtime rather than via a separate workflow/job, since
+          # pipeline.parameters and pipeline.git.branch are plain compile-time text
+          # substitution here - this can just reuse the same trigger_maestro_tests_ios job
+          # instead of duplicating it into a second one only to add this one step.
+          #
+          # NOTE: sdk-e2e-tests doesn't have a "cordova-ios" case yet (only
+          # swiftui/compose/rn/flutter) - until that's added there (registry.yaml,
+          # run.sh, a maestro/cordova suite), this will trigger a pipeline that fails
+          # immediately with "Invalid SDK".
+          name: Trigger maestro tests
+          command: |
+            if [ "<< pipeline.parameters.trigger_maestro_tests_ios >>" = "true" ] || [ "<< pipeline.git.branch >>" = "push-26.2.0" ]; then
+              ./bin/trigger-maestro-tests.sh triggeriOSTests "<< pipeline.parameters.source >>"
+            else
+              echo "Skipping maestro trigger (trigger_maestro_tests_ios=<< pipeline.parameters.trigger_maestro_tests_ios >>, branch=<< pipeline.git.branch >>)"
+            fi
+
+  trigger_maestro_tests_android:
+    docker:
+      - image: cimg/android:2026.07
+    resource_class: large
+    steps:
+      - checkout
+      - run:
+          name: Install Node.js
+          command: |
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+      - run:
+          # Project environment variable, not a context var - matches atomic-sdk-flutter's
+          # initial_setup_android convention.
+          name: Add Google services to App
+          command: |
+            if [ -z "$GOOGLE_SERVICES" ]; then
+              echo "GOOGLE_SERVICES is not set."
+              echo "Add it as a project environment variable (base64-encoded google-services.json) in CircleCI project settings, then re-run."
+              exit 1
+            fi
+            echo "$GOOGLE_SERVICES" | base64 --decode > google-services.json
+      - run:
+          # cordova-android@14.0.1's own defaults (cdv-gradle-config-defaults.json)
+          # pin SDK_VERSION 35 / MIN_BUILD_TOOLS_VERSION 35.0.0 / AGP_VERSION 8.7.3 -
+          # all already covered by cimg/android:2026.07's own preinstalled build-tools
+          # (35.0.0+) and platforms (android-34+), so no sdkmanager step is needed
+          # here (unlike the old cordova-android@10.1.2 pin, which needed build-tools
+          # 30.0.3/platform android-30 installed by hand).
+          #
+          # Gradle still needs an explicit install: cordova-android's own cordova.gradle
+          # uses groovy.util.XmlParser directly, which the image's default Gradle 9.6.1
+          # (Groovy 4) can't resolve ("unable to resolve class XmlParser") - this isn't
+          # fixed until cordova-android 15.1.0. Gradle 8.13 matches this release's
+          # GRADLE_VERSION default exactly (still pre-Groovy-4) and pairs with AGP
+          # 8.7.3's documented minimum of JDK 17, so switch off the image's default
+          # JDK 21 too.
+          name: Install Gradle 8.13 and switch to JDK 17 (matches cordova-android 14.0.1)
+          command: |
+            curl -fsSL https://services.gradle.org/distributions/gradle-8.13-bin.zip -o /tmp/gradle-8.13.zip
+            sudo unzip -q -d /usr/local /tmp/gradle-8.13.zip
+            rm /tmp/gradle-8.13.zip
+            echo 'export PATH="/usr/local/gradle-8.13/bin:$PATH"' >> "$BASH_ENV"
+            JAVA17_HOME=$(find /usr/lib/jvm -maxdepth 1 -iname "*java-17*" | head -1)
+            if [ -z "$JAVA17_HOME" ]; then
+              echo "No JDK 17 found under /usr/lib/jvm on this image - cimg/android:2026.07 was expected to ship one alongside 8/21."
+              ls /usr/lib/jvm
+              exit 1
+            fi
+            echo "export JAVA_HOME=$JAVA17_HOME" >> "$BASH_ENV"
+      - inject_atomic_token
+      - run:
+          name: Add Android platform
+          command: npx cordova platform add android
+      - run:
+          name: Build debug APK
+          command: npx cordova build android --debug
+      - store_artifacts:
+          path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          destination: app-debug.apk
+      - run:
+          # See the equivalent step in trigger_maestro_tests_ios for why this is
+          # self-gated at runtime rather than a separate workflow/job, and the
+          # sdk-e2e-tests caveat (no "cordova-android" case there yet either).
+          name: Trigger maestro tests
+          command: |
+            if [ "<< pipeline.parameters.trigger_maestro_tests_android >>" = "true" ] || [ "<< pipeline.git.branch >>" = "push-26.2.0" ]; then
+              ./bin/trigger-maestro-tests.sh triggerAndroidTests "<< pipeline.parameters.source >>"
+            else
+              echo "Skipping maestro trigger (trigger_maestro_tests_android=<< pipeline.parameters.trigger_maestro_tests_android >>, branch=<< pipeline.git.branch >>)"
+            fi
+
+workflows:
+  build-apps:
+    jobs:
+      - trigger_maestro_tests_ios
+      - trigger_maestro_tests_android
+
+  build_ios_simulator:
+    when: << pipeline.parameters.build_for_simulator >>
+    jobs:
+      - build_ios_simulator

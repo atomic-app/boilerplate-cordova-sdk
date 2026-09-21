@@ -21,7 +21,11 @@ CocoaPods requires a UTF-8 terminal. If `pod install` fails with a Unicode error
    npm install
    ```
 
-2. Open `www/js/index.js` and set the five constants in `setupAtomic()` with values from the Atomic Workbench. The last value is a JWT. You can generate one by following the [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK).
+2. Open `www/js/index.js` and set the five constants in `setupAtomic()` with values from the Atomic Workbench. The last value is a JWT, signed per the [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). Pull `keys/atomic_private.pem` from 1Password into a `keys/` folder at the repo root, then run:
+
+   ```bash
+   npm run generate-token
+   ```
 
    > The hardcoded JWT is a demo shortcut. In a real integration, the session delegate must return a fresh token each time the SDK requests one.
 
@@ -66,3 +70,4 @@ To test: run the app on a device, tap "Log in", send the app to the background, 
 ## Android
 
 The Android app requires a `google-services.json` file in the repo root before it builds. In the Firebase setup, use the `id` attribute of the `widget` element in `config.xml` as the application ID. Add the platform with `cordova platform add android`, then open `platforms/android` in Android Studio and run from there. Emulators on API 33 and above do not prompt for notification permission when started from the Cordova CLI.
+sd
