@@ -1,6 +1,6 @@
 # Atomic Cordova boilerplate
 
-A sample Cordova app that shows how to integrate the Atomic Web SDK in a WebView app, with native push notifications. The app bundles Atomic Web SDK 26.2.0 as two local scripts, `www/js/sdk.js` and `www/js/iframe-manager.js`.
+A sample Cordova app that shows how to integrate the Atomic Web SDK in a WebView app, with native push notifications. The app bundles Atomic Web SDK 26.3.0 as a single local script, `www/js/sdk.js`.
 
 The app does not run out of the box. You must supply your own configuration values from the Atomic Workbench.
 
