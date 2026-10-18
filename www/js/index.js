@@ -17,18 +17,186 @@
  * under the License.
  */
 
+// Configuration -> SDK -> API Host (eg. "https://999-1.client-api.atomic.io")
+const ATOMIC_API_HOST = '';
+// Configuration -> SDK -> API keys (eg. "my-api-key")
+const ATOMIC_API_KEY = '';
+// Configuration -> Environment ID (eg. "AbC12de3")
+const ATOMIC_ENVIRONMENT_ID = '';
+// Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
+const ATOMIC_STREAM_CONTAINER_ID = '';
+// A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
+const ATOMIC_REQUEST_TOKEN_STRING = '';
+
+const VARIANT_STORAGE_KEY = 'atomic-qa-container-variant';
+const DEFAULT_VARIANT = 'standalone';
+
+// The stream container variants that can be selected for testing. `mount` creates the variant's containers and
+// returns them, so they can be stopped when the variant changes or the user logs out.
+const VARIANTS = [
+  {
+    id: 'standalone',
+    title: 'Standalone',
+    mount: () => [mountStandalone('Standalone')],
+  },
+  {
+    id: 'horizontal',
+    title: 'Standalone (horizontal)',
+    mount: () => [
+      AtomicSDK.embed(
+        document.querySelector('#horizontal-host'),
+        containerConfig('Standalone (horizontal)', {
+          horizontalContainerConfig: {enabled: true, cardWidth: 300},
+        }),
+        true
+      ),
+    ],
+  },
+  {
+    id: 'launcher',
+    title: 'Launcher',
+    mount: () => [AtomicSDK.launch(containerConfig('Launcher'))],
+  },
+  {
+    id: 'single-card',
+    title: 'Single card',
+    mount: () => [mountSingleCard('Single card')],
+  },
+  {
+    id: 'modal',
+    title: 'Modal stream',
+    mount: () => [AtomicSDK.modalStreamContainer(containerConfig('Modal stream'))],
+  },
+  {
+    id: 'multiple',
+    title: 'Multiple containers',
+    mount: () => [
+      mountSingleCard('Single card'),
+      mountStandalone('Standalone'),
+      AtomicSDK.launch(containerConfig('Launcher')),
+    ],
+  },
+];
+
 let deviceToken;
 let loggedIn = false;
 let hasRegisteredForNotifications = false;
 
-let launcherInstance;
-let singleCardInstance;
+let selectedVariant = readStoredVariant();
+let containerInstances = [];
 
-function setSingleCardHidden(hidden) {
-  const embed = document.querySelector('#embed');
-  if (!embed) return;
-  embed.inert = hidden;
-  embed.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+function readStoredVariant() {
+  try {
+    const stored = localStorage.getItem(VARIANT_STORAGE_KEY);
+    if (VARIANTS.some((variant) => variant.id === stored)) {
+      return stored;
+    }
+  } catch (e) {
+    // Storage unavailable, use the default variant.
+  }
+  return DEFAULT_VARIANT;
+}
+
+function storeVariant(variantId) {
+  try {
+    localStorage.setItem(VARIANT_STORAGE_KEY, variantId);
+  } catch (e) {
+    // Storage unavailable, the selection is not remembered.
+  }
+}
+
+// Callbacks that log to the console with the name of the container that called them, so that callbacks from
+// containers sharing the page can be told apart.
+function loggedCallbacks(label) {
+  return {
+    onSizeChanged: (width, height) => {
+      console.log(`[${label}] onSizeChanged: ${width} x ${height}`);
+    },
+    onCardEvent: (event) => {
+      console.log(`[${label}] onCardEvent: ${event.type}`);
+    },
+    onCardCountChanged: (count) => {
+      console.log(`[${label}] onCardCountChanged: ${count}`);
+    },
+    onLauncherToggled: (isOpen) => {
+      console.log(`[${label}] onLauncherToggled: ${isOpen}`);
+    },
+    onModalStreamToggled: (isOpen) => {
+      console.log(`[${label}] onModalStreamToggled: ${isOpen}`);
+    },
+    onLinkButtonPressed: (payload) => {
+      console.log(`[${label}] onLinkButtonPressed: ${JSON.stringify(payload)}`);
+    },
+    onSubmitButtonPressed: (payload) => {
+      console.log(`[${label}] onSubmitButtonPressed: ${JSON.stringify(payload)}`);
+    },
+  };
+}
+
+function containerConfig(label, options = {}) {
+  return {
+    streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
+    features: {
+      cordova: {
+        enabled: true,
+      },
+    },
+    ...loggedCallbacks(label),
+    ...options,
+  };
+}
+
+function mountStandalone(label) {
+  return AtomicSDK.embed(
+    document.querySelector('#standalone-host'),
+    containerConfig(label)
+  );
+}
+
+function mountSingleCard(label) {
+  return AtomicSDK.singleCard(
+    document.querySelector('#single-card-host'),
+    containerConfig(label)
+  );
+}
+
+function stopContainers() {
+  containerInstances.forEach((container) => container.stop());
+  containerInstances = [];
+}
+
+function mountContainers() {
+  stopContainers();
+
+  const variant = VARIANTS.find(({id}) => id === selectedVariant);
+  console.log(`Mounting the "${variant.title}" container variant`);
+  // `modalStreamContainer` returns nothing when a modal stream is already mounted.
+  containerInstances = variant.mount().filter(Boolean);
+}
+
+function applyVariantLayout() {
+  document.body.dataset.variant = selectedVariant;
+}
+
+function selectVariant(variantId) {
+  selectedVariant = variantId;
+  storeVariant(variantId);
+  applyVariantLayout();
+
+  if (loggedIn) {
+    mountContainers();
+  }
+}
+
+function populateVariantPicker() {
+  const select = document.querySelector('#variantSelect');
+  VARIANTS.forEach(({id, title}) => {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = title;
+    select.appendChild(option);
+  });
+  select.value = selectedVariant;
 }
 
 async function registerDeviceForNotificationsWhenReady() {
@@ -48,20 +216,13 @@ async function registerDeviceForNotificationsWhenReady() {
 }
 
 function setupAtomic() {
-  // Configuration -> SDK -> API Host (eg. "https://999-1.client-api.atomic.io")
-  const ATOMIC_API_HOST = 'https://01.client-api.staging.atomic.io';
-  // Configuration -> SDK -> API keys (eg. "my-api-key")
-  const ATOMIC_API_KEY = 'cordova-api-key';
-  // Configuration -> Environment ID (eg. "AbC12de3")
-  const ATOMIC_ENVIRONMENT_ID = '1GbDyNVz';
-  // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
-  const ATOMIC_STREAM_CONTAINER_ID = 'KGMlMeD8';
-  // A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
-  const ATOMIC_REQUEST_TOKEN_STRING = '';
-
   AtomicSDK.initialise(ATOMIC_API_HOST, ATOMIC_API_KEY, ATOMIC_ENVIRONMENT_ID);
 
   AtomicSDK.enableDebugMode(3);
+
+  AtomicSDK.onError = (error) => {
+    console.error('[SDK] onError', error);
+  };
 
   AtomicSDK.setNativeDeviceInfo({
     platform: device.platform,
@@ -76,31 +237,13 @@ function setupAtomic() {
     return ATOMIC_REQUEST_TOKEN_STRING;
   });
 
-  singleCardInstance = AtomicSDK.singleCard(document.querySelector('#embed'), {
-    streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
-    features: {
-      cordova: {
-        enabled: true,
-      },
-    },
-  });
-
-  launcherInstance = AtomicSDK.launch({
-    streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
-    features: {
-      cordova: {
-        enabled: true,
-      },
-    },
-    // Hide single card so there's not two of each locator when testing
-    onLauncherToggled: (isOpen) => {
-      setSingleCardHidden(isOpen);
-    },
-  });
+  mountContainers();
 
   AtomicSDK.registerStreamContainersForNotifications([
     ATOMIC_STREAM_CONTAINER_ID,
-  ]);
+  ]).catch((e) => {
+    console.error('Registering stream containers for notifications failed', e);
+  });
 }
 
 function setupPushNotifications() {
@@ -163,19 +306,26 @@ function logout() {
   loggedIn = false;
   hasRegisteredForNotifications = false;
 
-  singleCardInstance.stop();
-  launcherInstance.stop();
-  setSingleCardHidden(false);
+  // Logging out empties the containers, removing them from the page is left to the app.
+  stopContainers();
 }
 
 function registerObservers() {
   document.querySelector('#loginBtn').addEventListener('click', login);
   document.querySelector('#logoutBtn').addEventListener('click', logout);
+  document
+    .querySelector('#variantSelect')
+    .addEventListener('change', (event) => selectVariant(event.target.value));
+  document.querySelector('#hostPageButton').addEventListener('click', () => {
+    console.log('Host page button pressed');
+  });
 }
 
 function onDeviceReady() {
   console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
 
+  populateVariantPicker();
+  applyVariantLayout();
   setupPushNotifications();
   registerObservers();
 }

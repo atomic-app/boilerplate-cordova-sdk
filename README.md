@@ -2,6 +2,8 @@
 
 A sample Cordova app that shows how to integrate the Atomic Web SDK in a WebView app, with native push notifications. The app bundles Atomic Web SDK 26.3.0 as a single local script, `www/js/sdk.js`.
 
+This branch is set up for QA regression testing of the Web SDK 26.3.0 release. Choose a stream container variant from the **Container** picker on the main screen: Standalone (the default), Standalone (horizontal), Launcher, Single card, Modal stream, or Multiple containers (a single card, a standalone feed and a launcher together). The choice is remembered, and changing it while logged in remounts the containers. Each container's callbacks are logged to the console with the container's name, for example `[Standalone] onCardEvent: dismissed`.
+
 The app does not run out of the box. You must supply your own configuration values from the Atomic Workbench.
 
 ## Prerequisites
@@ -21,7 +23,7 @@ CocoaPods requires a UTF-8 terminal. If `pod install` fails with a Unicode error
    npm install
    ```
 
-2. Open `www/js/index.js` and set the five constants in `setupAtomic()` with values from the Atomic Workbench. The last value is a JWT, signed per the [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). Pull `keys/atomic_private.pem` from 1Password into a `keys/` folder at the repo root, then run:
+2. Open `www/js/index.js` and set the five `ATOMIC_` constants at the top of the file with values from the Atomic Workbench. The last value is a JWT, signed per the [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). Pull `keys/atomic_private.pem` from 1Password into a `keys/` folder at the repo root, then run:
 
    ```bash
    npm run generate-token
@@ -39,6 +41,8 @@ CocoaPods requires a UTF-8 terminal. If `pod install` fails with a Unicode error
    ```bash
    cordova platform add ios@7.1.1
    ```
+
+   After each `cordova prepare ios`, an `after_prepare` hook (`scripts/fix-ios-deployment-target.js`) raises the iOS deployment target of CordovaLib and every pod to 15.0, re-running `pod install` when the Podfile changes, because current Xcode versions reject their own lower targets.
 
 5. Open the Xcode workspace:
 

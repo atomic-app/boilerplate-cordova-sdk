@@ -16,6 +16,16 @@
     <allow-navigation href="about:*" />
 
     <preference name="EnableViewportScale" value="true"/>
+    <preference name="deployment-target" value="15.0"/>
+
+    <platform name="ios">
+      <!-- CordovaLib ships with a deployment target of 11.0, and `cordova prepare`
+           regenerates the Podfile, resetting every pod to its podspec deployment
+           target (9.0/10.0/11.0). The current Xcode rejects both. This hook
+           raises them to IPHONEOS_DEPLOYMENT_TARGET = 15.0 after each prepare.
+           See scripts/fix-ios-deployment-target.js. -->
+      <hook type="after_prepare" src="scripts/fix-ios-deployment-target.js" />
+    </platform>
 
     <platform name="android">
       <resource-file src="google-services.json" target="/app/google-services.json" />

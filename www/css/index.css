@@ -22,13 +22,75 @@ body {
   box-sizing: border-box;
 }
 
-#embed {
-  width: 100%;
+/* Layout: the header with the controls, then the content area filling the rest of the screen. */
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, Roboto, 'Segoe UI', Arial, sans-serif;
 }
 
-.atomic-sdk-frame.single-card {
+.app-header {
+  flex-shrink: 0;
+}
+
+.app-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Each container host is shown only for the variants that use it (see `VARIANTS` in index.js). */
+.container-host {
+  display: none;
   width: 100%;
+  flex-shrink: 0;
+}
+
+[data-variant="standalone"] #standalone-host,
+[data-variant="multiple"] #standalone-host,
+[data-variant="horizontal"] #horizontal-host,
+[data-variant="single-card"] #single-card-host,
+[data-variant="multiple"] #single-card-host {
+  display: block;
+}
+
+/* The standalone feed fills the remaining space and scrolls internally. */
+#standalone-host {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+[data-variant="standalone"] .app-content,
+[data-variant="multiple"] .app-content {
+  overflow-y: hidden;
+}
+
+/* The horizontal feed sits at the bottom of the screen, below the host page content. */
+#horizontal-host {
+  margin-top: auto;
+}
+
+#single-card-host {
   padding: 8px;
+}
+
+/* Host page content is shown behind the variants that overlay or sit alongside the page. */
+.host-page-content {
+  padding: 0 24px 24px;
+  color: #333;
+  line-height: 1.5;
+}
+
+[data-variant="standalone"] .host-page-content,
+[data-variant="multiple"] .host-page-content {
+  display: none;
+}
+
+.host-page-content h2 {
+  font-size: 18px;
+  margin: 8px 0;
 }
 
 .logo-header {
@@ -63,7 +125,33 @@ body {
 }
 
 #loginControls {
-  padding: 16px;
+  padding: 8px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.variant-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.variant-picker select {
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  font-size: 16px;
+}
+
+.login-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.secondary-btn {
+  background-color: #6b6b80;
 }
 
 

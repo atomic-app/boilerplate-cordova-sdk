@@ -44,11 +44,31 @@
         <script src="js/sdk.js"></script>
         <script src="js/index.js"></script>
 
-        <img class="logo-header" src="img/atomic-logo-on-light.svg"></img>
-        <div id="loginControls">
-          <button class="modern-btn" id="loginBtn">Log in</button>
-          <button class="modern-btn" id="logoutBtn" disabled>Logout</button>
-        </div>
-        <div id="embed"></div>
+        <header class="app-header">
+          <img class="logo-header" src="img/atomic-logo-on-light.svg" alt="Atomic"></img>
+          <div id="loginControls">
+            <label class="variant-picker" for="variantSelect">
+              Container
+              <select id="variantSelect"></select>
+            </label>
+            <div class="login-buttons">
+              <button class="modern-btn" id="loginBtn">Log in</button>
+              <button class="modern-btn" id="logoutBtn" disabled>Logout</button>
+            </div>
+          </div>
+        </header>
+
+        <main class="app-content">
+          <div id="single-card-host" class="container-host"></div>
+          <div id="standalone-host" class="container-host"></div>
+          <section class="host-page-content" aria-label="Host page content">
+            <h2>Host page content</h2>
+            <p>This content belongs to the host app. Stream container popovers, subviews and the launcher panel render above it.</p>
+            <button class="modern-btn secondary-btn" id="hostPageButton">Host page button</button>
+            <p>Scroll this page to check that popovers stay attached to their trigger while the page moves.</p>
+            <p>The host page button logs to the console when pressed, to confirm the page stays interactive while a modal subview is open.</p>
+          </section>
+          <div id="horizontal-host" class="container-host"></div>
+        </main>
     </body>
 </html>

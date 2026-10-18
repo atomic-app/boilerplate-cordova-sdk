@@ -16,14 +16,14 @@
   "devDependencies": {
     "@havesource/cordova-plugin-push": "^7.0.0",
     "cordova-android": "^14.0.1",
-    "cordova-ios": "7.1.1",
+    "cordova-ios": "^7.1.1",
     "cordova-plugin-device": "^3.0.0",
     "jsonwebtoken": "^9.0.3"
   },
   "cordova": {
     "platforms": [
-      "ios",
-      "android"
+      "android",
+      "ios"
     ],
     "plugins": {
       "cordova-plugin-device": {},
