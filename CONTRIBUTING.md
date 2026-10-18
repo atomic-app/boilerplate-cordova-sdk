@@ -14,6 +14,10 @@ Required CircleCI project environment variables:
 | Variable | Job(s) | Contents |
 |---|---|---|
 | `GOOGLE_SERVICES` | Android | `google-services.json`, base64-encoded — same convention as `atomic-sdk-flutter` |
+| `ATOMIC_API_HOST` | all | plain string; Workbench → Configuration → SDK → API Host |
+| `ATOMIC_API_KEY` | all | plain string; Workbench → Configuration → SDK → API keys |
+| `ATOMIC_ENVIRONMENT_ID` | all | plain string; Workbench → Configuration → Environment ID |
+| `ATOMIC_STREAM_CONTAINER_ID` | all | plain string; Workbench → Configuration → SDK → Stream containers → ID |
 | `ATOMIC_PRIVATE_KEY` | all | `keys/atomic_private.pem`, base64-encoded, from 1Password |
 | `ATOMIC_CUSTOMER_ID` | all (optional) | plain string; which Workbench test user the generated token authenticates as. Falls back to `scripts/generate-token.js`'s hardcoded default if unset |
 | `IOS_CERTIFICATE` | iOS device | Apple **Development** certificate `.p12`, base64-encoded — the same kind of certificate Xcode's automatic signing uses locally, exported via Keychain Access |
@@ -21,6 +25,8 @@ Required CircleCI project environment variables:
 | `IOS_PROVISIONING_PROFILE` | iOS device | a **Development** `.mobileprovision` for this app's bundle ID, base64-encoded — must have the test devices' UDIDs registered in the Apple Developer portal, and the Push Notifications capability enabled |
 
 `ATOMIC_PRIVATE_KEY` and `ATOMIC_CUSTOMER_ID` are used the same way for all three builds: each generates a fresh JWT from the private key via `scripts/generate-token.js` and substitutes it into `www/js/index.js` — nothing token-shaped is ever committed to source or stored as a static secret, so there's nothing to expire or refresh.
+
+The four `ATOMIC_API_HOST`/`ATOMIC_API_KEY`/`ATOMIC_ENVIRONMENT_ID`/`ATOMIC_STREAM_CONTAINER_ID` values are written into a gitignored `www/js/config.js` by `scripts/generate-config.js`, which `setupAtomic()` reads. The build fails if any of them is unset.
 
 The `trigger_maestro_tests_ios` job builds with Fastlane (`fastlane/Fastfile`, `Gemfile`), same pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` + `import_certificate` + `build_ios_app`, exported with `method: development`. There's no committed `Gemfile.lock` yet — the local Ruby available while setting this up was too old to generate one that would match CI's pinned Ruby (3.3.6, installed via `rbenv` in the job itself), so `bundle install` resolves fresh each run. Worth generating and committing one later for faster, more deterministic installs.
 

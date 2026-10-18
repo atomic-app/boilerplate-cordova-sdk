@@ -48,14 +48,12 @@ async function registerDeviceForNotificationsWhenReady() {
 }
 
 function setupAtomic() {
-  // Configuration -> SDK -> API Host (eg. "https://999-1.client-api.atomic.io")
-  const ATOMIC_API_HOST = 'https://01.client-api.staging.atomic.io';
-  // Configuration -> SDK -> API keys (eg. "my-api-key")
-  const ATOMIC_API_KEY = 'cordova-api-key';
-  // Configuration -> Environment ID (eg. "AbC12de3")
-  const ATOMIC_ENVIRONMENT_ID = '1GbDyNVz';
-  // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
-  const ATOMIC_STREAM_CONTAINER_ID = 'KGMlMeD8';
+  // Generated from environment variables into www/js/config.js by `npm run generate-config`
+  // (see scripts/generate-config.js for where each value comes from in the Atomic Workbench).
+  if (!window.ATOMIC_CONFIG) {
+    throw new Error('www/js/config.js is missing - run `npm run generate-config` before building.');
+  }
+  const { ATOMIC_API_HOST, ATOMIC_API_KEY, ATOMIC_ENVIRONMENT_ID, ATOMIC_STREAM_CONTAINER_ID } = window.ATOMIC_CONFIG;
   // A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
   const ATOMIC_REQUEST_TOKEN_STRING = '';
 

@@ -14,7 +14,7 @@ function triggeriOSTests() {
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \
         --data "{
-                    \"branch\":\"main\",
+                    \"branch\":\"qa-362-cordova-test-updates-26.3\",
                     \"parameters\":
                         {
                             \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/HelloCordova.ipa\",
@@ -37,7 +37,7 @@ function triggerAndroidTests() {
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \
         --data "{
-                    \"branch\":\"main\",
+                    \"branch\":\"qa-362-cordova-test-updates-26.3\",
                     \"parameters\":
                         {
                             \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/app-debug.apk\",

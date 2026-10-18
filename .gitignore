@@ -31,6 +31,9 @@ node_modules/
 # Firebase config, pulled from 1Password per-developer
 /google-services.json
 
+# Atomic SDK setup values, generated from env vars by scripts/generate-config.js
+/www/js/config.js
+
 # JWT signing keypair, pulled from 1Password per-developer
 /keys/
 

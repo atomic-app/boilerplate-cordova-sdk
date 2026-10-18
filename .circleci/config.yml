@@ -25,7 +25,7 @@ executors:
 
 commands:
   inject_atomic_token:
-    description: "Install JS deps, then generate a fresh Atomic JWT from the private key and inject it into www/js/index.js"
+    description: "Install JS deps, write the Atomic SDK setup values from env vars into www/js/config.js, then generate a fresh Atomic JWT from the private key and inject it into www/js/index.js"
     steps:
       - run:
           name: Restore Atomic private key
@@ -40,6 +40,9 @@ commands:
       - run:
           name: Install dependencies
           command: npm install
+      - run:
+          name: Generate Atomic SDK config from environment variables
+          command: node scripts/generate-config.js
       - run:
           name: Generate and inject a fresh Atomic request token
           command: |
