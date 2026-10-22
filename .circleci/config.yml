@@ -25,7 +25,7 @@ executors:
 
 commands:
   inject_atomic_token:
-    description: "Install JS deps, write the Atomic SDK setup values from env vars into www/js/config.js, then generate a fresh Atomic JWT from the private key and inject it into www/js/index.js"
+    description: "Install JS deps, inject the Atomic SDK setup values from env vars into www/js/index.js, then generate a fresh Atomic JWT from the private key and inject it into www/js/index.js"
     steps:
       - run:
           name: Restore Atomic private key
@@ -41,7 +41,7 @@ commands:
           name: Install dependencies
           command: npm install
       - run:
-          name: Generate Atomic SDK config from environment variables
+          name: Inject Atomic SDK setup values from environment variables
           command: node scripts/generate-config.js
       - run:
           name: Generate and inject a fresh Atomic request token
@@ -113,21 +113,6 @@ jobs:
       - restore_cache:
           key: rbenv-ruby-3.3.6-{{ arch }}
       - run:
-          # Workaround for Ruby 3.4 + fastlane, same as atomic-sdk-flutter's iOS setup.
-          # rbenv install -s skips the from-source compile when the cache restore above
-          # already populated ~/.rbenv/versions/3.3.6.
-          #
-          # Only the shims dir goes into BASH_ENV, not `eval "$(rbenv init - bash)"`.
-          # rbenv is itself a bash script; putting the init eval in BASH_ENV means every
-          # later non-interactive bash process - including the ones rbenv spawns
-          # internally - re-sources BASH_ENV and re-runs it, recursively forking rbenv
-          # until the VM runs out of processes.
-          #
-          # Deliberately not `rbenv global 3.3.6`: this image already has CocoaPods
-          # installed under its own pre-existing Ruby (3.4.7), which `cordova platform
-          # add ios` needs later for the push plugin's install hook. Changing the
-          # global version would break `pod` for that step, so 3.3.6 is only ever
-          # selected explicitly via RBENV_VERSION on the commands that need it.
           name: Use Ruby 3.3.x
           command: |
             HOMEBREW_NO_INSTALL_UPGRADE=1 brew install rbenv ruby-build
@@ -147,14 +132,6 @@ jobs:
           name: Add iOS platform
           command: npx cordova platform add ios@7.1.1
       - run:
-          # cordova-ios's own build-release.xcconfig hard-codes
-          # CODE_SIGN_IDENTITY = "iPhone Distribution" (meant for App Store/Ad Hoc
-          # builds), which conflicts with the Automatic signing this job forces via
-          # fastlane's update_code_signing_settings ("conflicting code signing
-          # identity"). build-extras.xcconfig is cordova-ios's own documented
-          # override point, included right after build-release.xcconfig sets that
-          # value - not a hack. Regenerated fresh by "Add iOS platform" above on
-          # every run, so this has to happen after that step, every time.
           name: Override CODE_SIGN_IDENTITY for Automatic signing
           command: |
             echo 'CODE_SIGN_IDENTITY = Apple Development' >> platforms/ios/cordova/build-extras.xcconfig
@@ -170,15 +147,6 @@ jobs:
           path: build/ipa/HelloCordova.ipa
           destination: HelloCordova.ipa
       - run:
-          # Self-gated at runtime rather than via a separate workflow/job, since
-          # pipeline.parameters and pipeline.git.branch are plain compile-time text
-          # substitution here - this can just reuse the same trigger_maestro_tests_ios job
-          # instead of duplicating it into a second one only to add this one step.
-          #
-          # NOTE: sdk-e2e-tests doesn't have a "cordova-ios" case yet (only
-          # swiftui/compose/rn/flutter) - until that's added there (registry.yaml,
-          # run.sh, a maestro/cordova suite), this will trigger a pipeline that fails
-          # immediately with "Invalid SDK".
           name: Trigger maestro tests
           command: |
             if [ "<< pipeline.parameters.trigger_maestro_tests_ios >>" = "true" ] || [ "<< pipeline.git.branch >>" = "push-26.2.0" ]; then
@@ -199,8 +167,6 @@ jobs:
             curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
             sudo apt-get install -y nodejs
       - run:
-          # Project environment variable, not a context var - matches atomic-sdk-flutter's
-          # initial_setup_android convention.
           name: Add Google services to App
           command: |
             if [ -z "$GOOGLE_SERVICES" ]; then
@@ -210,20 +176,6 @@ jobs:
             fi
             echo "$GOOGLE_SERVICES" | base64 --decode > google-services.json
       - run:
-          # cordova-android@14.0.1's own defaults (cdv-gradle-config-defaults.json)
-          # pin SDK_VERSION 35 / MIN_BUILD_TOOLS_VERSION 35.0.0 / AGP_VERSION 8.7.3 -
-          # all already covered by cimg/android:2026.07's own preinstalled build-tools
-          # (35.0.0+) and platforms (android-34+), so no sdkmanager step is needed
-          # here (unlike the old cordova-android@10.1.2 pin, which needed build-tools
-          # 30.0.3/platform android-30 installed by hand).
-          #
-          # Gradle still needs an explicit install: cordova-android's own cordova.gradle
-          # uses groovy.util.XmlParser directly, which the image's default Gradle 9.6.1
-          # (Groovy 4) can't resolve ("unable to resolve class XmlParser") - this isn't
-          # fixed until cordova-android 15.1.0. Gradle 8.13 matches this release's
-          # GRADLE_VERSION default exactly (still pre-Groovy-4) and pairs with AGP
-          # 8.7.3's documented minimum of JDK 17, so switch off the image's default
-          # JDK 21 too.
           name: Install Gradle 8.13 and switch to JDK 17 (matches cordova-android 14.0.1)
           command: |
             curl -fsSL https://services.gradle.org/distributions/gradle-8.13-bin.zip -o /tmp/gradle-8.13.zip
@@ -248,9 +200,6 @@ jobs:
           path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
           destination: app-debug.apk
       - run:
-          # See the equivalent step in trigger_maestro_tests_ios for why this is
-          # self-gated at runtime rather than a separate workflow/job, and the
-          # sdk-e2e-tests caveat (no "cordova-android" case there yet either).
           name: Trigger maestro tests
           command: |
             if [ "<< pipeline.parameters.trigger_maestro_tests_android >>" = "true" ] || [ "<< pipeline.git.branch >>" = "push-26.2.0" ]; then

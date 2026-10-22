@@ -26,7 +26,7 @@ Required CircleCI project environment variables:
 
 `ATOMIC_PRIVATE_KEY` and `ATOMIC_CUSTOMER_ID` are used the same way for all three builds: each generates a fresh JWT from the private key via `scripts/generate-token.js` and substitutes it into `www/js/index.js` — nothing token-shaped is ever committed to source or stored as a static secret, so there's nothing to expire or refresh.
 
-The four `ATOMIC_API_HOST`/`ATOMIC_API_KEY`/`ATOMIC_ENVIRONMENT_ID`/`ATOMIC_STREAM_CONTAINER_ID` values are written into a gitignored `www/js/config.js` by `scripts/generate-config.js`, which `setupAtomic()` reads. The build fails if any of them is unset.
+The four `ATOMIC_API_HOST`/`ATOMIC_API_KEY`/`ATOMIC_ENVIRONMENT_ID`/`ATOMIC_STREAM_CONTAINER_ID` values are committed as empty strings in `setupAtomic()` (so anyone testing manually fills in their own), and CI substitutes them into `www/js/index.js` via `scripts/generate-config.js`. The build fails if any of them is unset.
 
 The `trigger_maestro_tests_ios` job builds with Fastlane (`fastlane/Fastfile`, `Gemfile`), same pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` + `import_certificate` + `build_ios_app`, exported with `method: development`. There's no committed `Gemfile.lock` yet — the local Ruby available while setting this up was too old to generate one that would match CI's pinned Ruby (3.3.6, installed via `rbenv` in the job itself), so `bundle install` resolves fresh each run. Worth generating and committing one later for faster, more deterministic installs.
 

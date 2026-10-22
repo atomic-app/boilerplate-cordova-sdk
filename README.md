@@ -21,17 +21,7 @@ CocoaPods requires a UTF-8 terminal. If `pod install` fails with a Unicode error
    npm install
    ```
 
-2. Generate `www/js/config.js` (gitignored) from environment variables, using values from the Atomic Workbench:
-
-   ```bash
-   ATOMIC_API_HOST="https://999-1.client-api.atomic.io" \
-   ATOMIC_API_KEY="my-api-key" \
-   ATOMIC_ENVIRONMENT_ID="AbC12de3" \
-   ATOMIC_STREAM_CONTAINER_ID="123abcde" \
-   npm run generate-config
-   ```
-
-   `setupAtomic()` in `www/js/index.js` also needs a JWT, signed per the [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). Pull `keys/atomic_private.pem` from 1Password into a `keys/` folder at the repo root, then run:
+2. Open `www/js/index.js` and set the five constants in `setupAtomic()` with values from the Atomic Workbench. The last value is a JWT, signed per the [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). Pull `keys/atomic_private.pem` from 1Password into a `keys/` folder at the repo root, then run:
 
    ```bash
    npm run generate-token
