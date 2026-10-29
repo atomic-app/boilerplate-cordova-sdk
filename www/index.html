@@ -47,13 +47,24 @@
         <header class="app-header">
           <img class="logo-header" src="img/atomic-logo-on-light.svg" alt="Atomic"></img>
           <div id="loginControls">
-            <label class="variant-picker" for="variantSelect">
+            <label class="control-picker" for="variantSelect">
               Container
               <select id="variantSelect"></select>
             </label>
             <div class="login-buttons">
               <button class="modern-btn" id="loginBtn">Log in</button>
               <button class="modern-btn" id="logoutBtn" disabled>Logout</button>
+            </div>
+            <div class="push-controls">
+              <label class="control-picker" for="apnsModeSelect">
+                APNs mode
+                <select id="apnsModeSelect"></select>
+              </label>
+              <div class="push-buttons">
+                <button class="modern-btn secondary-btn" id="registerBtn" disabled>Register device</button>
+                <button class="modern-btn secondary-btn" id="deregisterBtn" disabled>Deregister device</button>
+              </div>
+              <p class="push-status" id="pushStatus" role="status" aria-live="polite">Waiting for a push token.</p>
             </div>
           </div>
         </header>

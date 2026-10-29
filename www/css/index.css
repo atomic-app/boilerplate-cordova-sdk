@@ -131,14 +131,14 @@ body {
   gap: 12px;
 }
 
-.variant-picker {
+.control-picker {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 16px;
 }
 
-.variant-picker select {
+.control-picker select {
   flex: 1;
   min-width: 0;
   padding: 8px;
@@ -152,6 +152,42 @@ body {
 
 .secondary-btn {
   background-color: #6b6b80;
+}
+
+/* Push notification test controls. The status line reports the result of the last register or
+   deregister call on screen, so push can be tested on a device without attaching Safari. */
+.push-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #d5d5de;
+}
+
+.push-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.push-buttons .modern-btn {
+  flex: 1;
+  padding: 12px 8px;
+}
+
+.push-status {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #4a4a5a;
+  word-break: break-word;
+}
+
+.push-status.is-error {
+  color: #c01c28;
+}
+
+.push-status.is-success {
+  color: #1a7f37;
 }
 
 
