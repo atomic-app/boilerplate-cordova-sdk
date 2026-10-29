@@ -36,10 +36,10 @@ CocoaPods requires a UTF-8 terminal. If `pod install` fails with a Unicode error
    - In `config.xml`, change the `ios-CFBundleIdentifier` attribute to a value unique to your organization.
    - In `www/js/index.js`, set the same value as the iOS `appId` in `setNativeDeviceInfo()`. Push registration binds to this value, so the two must match.
 
-4. Add the iOS platform. Use this exact version:
+4. Add the iOS platform. Use this exact version, which supports the UIScene life cycle that apps built with the iOS 27 SDK require:
 
    ```bash
-   cordova platform add ios@7.1.1
+   cordova platform add ios@8.1.1
    ```
 
    After each `cordova prepare ios`, an `after_prepare` hook (`scripts/fix-ios-deployment-target.js`) raises the iOS deployment target of CordovaLib and every pod to 15.0, re-running `pod install` when the Podfile changes, because current Xcode versions reject their own lower targets.
@@ -47,10 +47,10 @@ CocoaPods requires a UTF-8 terminal. If `pod install` fails with a Unicode error
 5. Open the Xcode workspace:
 
    ```bash
-   open platforms/ios/HelloCordova.xcworkspace
+   open platforms/ios/App.xcworkspace
    ```
 
-6. To run on a physical device: in Xcode, select the HelloCordova target, open Signing & Capabilities, enable "Automatically manage signing", and select your team. Simulator runs do not need a team.
+6. To run on a physical device: in Xcode, select the App target, open Signing & Capabilities, enable "Automatically manage signing", and select your team. Simulator runs do not need a team.
 
    > The Release section of Signing & Capabilities can show a signing error. Debug builds, which is what Run uses, are not affected.
 
