@@ -1,110 +1,186 @@
-# README.md
+# Atomic Cordova boilerplate
 
-This is a boilerplate app to get you started with integrating the Atomic SDK in a Cordova app.
+A sample Cordova app showing how to integrate the Atomic Web SDK in a WebView app, including
+native push notifications.
 
-This app also integrates the native push notification functionality of the SDK to show how you can integrate support for native push notifications in your Cordova app.
+The app bundles **Atomic Web SDK 26.3.0** as a single local script, `www/js/sdk.js`, downloaded
+from <https://downloads.atomic.io/web-sdk/release/26.3.0/sdk.js>.
 
-The app will not run out of the box, you will need to provide your own configuration values. The Android app requires that you create a `google-services.json` file in the root directory before it will build.
+The app does not run out of the box. You must supply your own configuration values from the
+Atomic Workbench.
+
+## Stream container variants
+
+The **Container** picker on the main screen switches between the ways a stream container can be
+presented:
+
+| Variant | SDK call |
+| --- | --- |
+| Standalone | `AtomicSDK.embed` |
+| Standalone (horizontal) | `AtomicSDK.embed` with `horizontalContainerConfig` |
+| Launcher | `AtomicSDK.launch` |
+| Single card | `AtomicSDK.singleCard` |
+| Modal stream | `AtomicSDK.modalStreamContainer` |
+| Multiple containers | a single card, a standalone feed and a launcher together |
+
+The choice is remembered between launches, and changing it while logged in remounts the
+containers. Every container's callbacks are logged to the console prefixed with the container's
+name, for example `[Standalone] onCardEvent: dismissed`, so callbacks from containers sharing a
+page can be told apart.
+
+The page also carries some host app content below the containers, to show that popovers,
+subviews and the launcher panel render above it and that the page stays interactive underneath.
 
 ## Prerequisites
 
-Setup and install the Cordova CLI following the [documentation](https://cordova.apache.org/docs/en/11.x/guide/cli/index.html). 
+- Node.js 20.17 or later
+- Cordova CLI 13: `npm install -g cordova`
+- For iOS: Xcode with the iOS platform installed, and CocoaPods
+- For Android: Android Studio (or the Android SDK command line tools) and JDK 17
 
-```bash
-npm install -g cordova
-```
-
-For iOS development follow the instructions for the [iOS platform](https://cordova.apache.org/docs/en/11.x/guide/platforms/ios/index.html). 
-
-> Push notifications on iOS will only work on a physical iOS device (not the simulator) even with Xcode 14 supporting notifications in the simulator on newer macOS devices. 
-
-For Android follow the instructions for [Android platform](https://cordova.apache.org/docs/en/11.x/guide/platforms/android/index.html). 
-
+CocoaPods requires a UTF-8 terminal. If `pod install` fails with a Unicode error during platform
+setup, run `export LANG=en_US.UTF-8` and try again.
 
 ## Setup
 
-Open the `www/js/index.js` file in your editor.
+1. Install the dependencies:
 
-In the `setupAtomic` function there are 5 constants where you will need to add your own values from the Atomic Workbench. The final value is a JWT token string, you can generate this following the [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). 
+   ```bash
+   npm install
+   ```
 
-```javascript
-// Configuration -> SDK -> API Host (eg. "https://999-1.client-api.atomic.io")
-const ATOMIC_API_HOST = '';
-// Configuration -> SDK -> API keys (eg. "my-api-key")
-const ATOMIC_API_KEY = '';
-// Configuration -> Environment ID (eg. "AbC12de3")
-const ATOMIC_ENVIRONMENT_ID = '';
-// Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
-const ATOMIC_STREAM_CONTAINER_ID = '';
-// A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
-const ATOMIC_REQUEST_TOKEN_STRING = '';
-```
+2. Open `www/js/index.js` and fill in the five `ATOMIC_` constants at the top of the file with
+   values from the Atomic Workbench:
 
-Due to Cordova's default CSP settings may need to modify the content policy in the `www/index.html`, in particular if you have a specific image or font host. See the [Web SDK documentation](https://documentation.atomic.io/sdks/web#content-security-policy) for more information
+   ```javascript
+   // Configuration -> SDK -> API Host (eg. "https://999-1.client-api.atomic.io")
+   const ATOMIC_API_HOST = '';
+   // Configuration -> SDK -> API keys (eg. "my-api-key")
+   const ATOMIC_API_KEY = '';
+   // Configuration -> Environment ID (eg. "AbC12de3")
+   const ATOMIC_ENVIRONMENT_ID = '';
+   // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
+   const ATOMIC_STREAM_CONTAINER_ID = '';
+   // A JWT token generated following the SDK Authentication guide
+   const ATOMIC_REQUEST_TOKEN_STRING = '';
+   ```
 
-You will also need to change the bundle identifier on iOS.
+   The last value is a JWT, signed per the
+   [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). If you have the
+   private key whose public key is registered in the Workbench, you can generate one and write it
+   into `www/js/index.js` with:
 
-- Edit the bundle identifier in the `config.xml` file under the `ios-CFBundleIdentifier` attribute to one that will be unique to your organisation e.g. `ios-CFBundleIdentifier="com.ios.yourorg.boilerplate.cordova`. 
-- Update the appId in the call to `setNativeDeviceInfo` as well.
+   ```bash
+   ATOMIC_PRIVATE_KEY_PATH=/path/to/private.pem \
+   ATOMIC_CUSTOMER_ID=your-user-id \
+   npm run generate-token
+   ```
 
-Install the dependencies using:
+   > A hardcoded JWT is a demo shortcut. In a real integration the session delegate must return a
+   > freshly minted token each time the SDK requests one.
+
+3. Set your own iOS bundle identifier, so Xcode can sign the app with your team:
+
+   - In `config.xml`, change the `ios-CFBundleIdentifier` attribute to a value unique to your
+     organization.
+   - In `www/js/index.js`, set the same value as the iOS `appId` in `setNativeDeviceInfo()`. Push
+     registration binds to this value, so the two must match.
+
+Cordova's default Content Security Policy may need adjusting for your own image or font hosts.
+The policy in `www/index.html` already allows `*.atomic.io`, so it covers any Atomic-hosted API
+host you configure in step 2. See the
+[Web SDK documentation](https://documentation.atomic.io/sdks/web#content-security-policy).
+
+## Run on iOS
+
+1. Add the iOS platform:
+
+   ```bash
+   cordova platform add ios@8.1.1
+   ```
+
+   After each `cordova prepare ios`, an `after_prepare` hook
+   (`scripts/fix-ios-pod-deployment-target.js`) raises every CocoaPods target to iOS 15.0.
+   Firebase's Google dependencies still declare iOS 9.0 and 12.0 deployment targets, which current
+   Xcode versions reject outright, and `cordova prepare` regenerates the Podfile each time.
+
+2. Open the Xcode workspace:
+
+   ```bash
+   open platforms/ios/App.xcworkspace
+   ```
+
+3. To run on a physical device: select the App target, open Signing & Capabilities, enable
+   "Automatically manage signing", and choose your team. Simulator runs do not need a team.
+
+   > The Release section of Signing & Capabilities can show a signing error. Debug builds, which
+   > is what Run uses, are not affected.
+
+4. Select a simulator or a connected device and run (Cmd-R). Tap "Log in", then send a card to
+   your test user from the Workbench.
+
+Alternatively, build and run from the command line:
 
 ```bash
-npm install
-```
-
-Add the iOS and android platforms:
-
-```bash
-cordova platform add ios
-cordova platform add android
-```
-
-Run on an iOS simulator using:
-
-```bash
-cordova build ios
+cordova build ios --emulator
 cordova run ios
 ```
 
-Try sending a card to your user from the workbench. A single card should appear on the main screen, and if you press the blue "Bell" in the bottom right the SDK will open a list of cards. 
+If you change any file in `www/` after step 1, run `cordova prepare ios` before building again.
+Xcode builds the copy in `platforms/ios/www`, not `www/`.
 
-> Note: To run on Android, you should run the app from Android Studio (open the platforms/android folder in Android studio and run the app from there. Android API 33 version and above emulators won't request notification permissions when run using the `cordova emulate android` command. 
+## Run on Android
 
-## Push Notification Specific Setup
+The Android app needs a `google-services.json` file in the repository root before it will build.
+Create the app in the Firebase console using the `id` attribute of the `widget` element in
+`config.xml` as the Android package name, then download the file to the root of this repository.
 
-To receive notifications on iOS you need to create a push certificate, and for Android you will need to set up the app in Firebase and get a legacy server key. 
+```bash
+cordova platform add android
+cordova build android --debug
+cordova run android
+```
 
-You can follow our guide for the [React Native SDK](https://documentation.atomic.io/advanced/configure-push-notification-support-for-react-native) as the setup steps are almost identical.
+You can also open `platforms/android` in Android Studio and run from there.
 
-Exceptions:
-- For the iOS bundle identifier, use the value you choose earlier under the `ios-CFBundleIdentifier` attribute, for the Android appId use the `id` attribute in the `config.xml` file. 
-- When using Cordova, the google-services.json file goes in the root directory, it will be automatically copied to the correct folder when the app is built.
+## Push notifications
 
-You **must run the app on a physical iOS device to receive notifications**. They will not work in the simulator. 
+- Push notifications work on the iOS Simulator, provided you are on macOS 13 or later on a Mac
+  with Apple silicon or a T2 chip, running an iOS 16 or later simulator. The simulator registers
+  with APNs and gets its own device token, tied to that simulator on that Mac. Only debug builds
+  against the APNs **sandbox** environment work this way. Outside those conditions - an older Mac
+  or simulator, or the production APNs environment - you need a physical device.
+- You can also deliver a payload locally, without involving APNs, with
+  `xcrun simctl push <device> com.ios.atomic.boilerplate.cordova payload.json`. That exercises the
+  app's handling of a notification, but not registration or delivery.
+- Your bundle identifier needs an APNs certificate or key configured as a notification platform in
+  the Atomic Workbench. The setup steps in the
+  [push notification guide for React Native](https://documentation.atomic.io/sdks/react-native/react-native-push-notifications)
+  are almost identical for Cordova.
 
-The app **must also be in the background for a notification banner to appear**. 
+The app registers the device for notifications automatically, as soon as both a push token has
+arrived from the operating system and you have logged in — the two can happen in either order.
+The status line under the Log in / Logout buttons reports where that has got to, so the flow can
+be followed on a device without attaching a debugger. Tapping "Logout" deregisters the device as
+part of logging out.
+
+Notification banners are shown even while the app is in the foreground.
+
+To test: run the app on a device or a supported simulator, tap "Log in", then send a card with a
+push notification from the Workbench.
+
+## Updating the bundled SDK
+
+`www/js/sdk.js` is a plain copy of a released Web SDK bundle. To move to a newer release, download
+it over the top and update the version stated at the top of this file:
+
+```bash
+curl -o www/js/sdk.js https://downloads.atomic.io/web-sdk/release/<version>/sdk.js
+```
 
 ## Debugging
 
-### iOS
-
-You can view the JavaScript console logs on iOS using the Safari Developer Tools, in Safari go to Develop -> YourDevice -> HelloAtomic.
-
-> Tip: If the Develop menu is not visible, go to Safari -> Settings -> Advanced -> ☑ Show Develop menu in menu bar
-
-To capture the errors when the page is first loaded enter `location.reload()` in the console.
-
-You can also view error logs by running the app using Xcode, open up the `open platforms/ios/HelloCordova.xcworkspace` and run the app using Command-R. 
-
-Look for errors in the console in the bottom left. 
-
-### Android
-
-You can view the JavaScript console logs for Android using the Chrome developer tools. In Chrome enter 'chrome://inspect' in the URL bar and then select your emulator or device in the list and choose 'Inspect'. 
-
-You can view the native logs by opening the platforms/android directory in Android Studio. You can use the LogCat viewer to see the native logs and also run the app from there using Control-R. 
-
-
-
-
+- iOS JavaScript logs: Safari > Develop > your device > HelloAtomic. Startup errors happen before
+  the inspector attaches, so run `location.reload()` in the console to see them.
+- Android JavaScript logs: `chrome://inspect` in Chrome, or `adb logcat`.
+- Native logs appear in the Xcode or Android Studio console when you run the app from there.

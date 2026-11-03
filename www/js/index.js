@@ -17,44 +17,233 @@
  * under the License.
  */
 
+// Configuration -> SDK -> API Host (eg. "https://999-1.client-api.atomic.io")
+const ATOMIC_API_HOST = '';
+// Configuration -> SDK -> API keys (eg. "my-api-key")
+const ATOMIC_API_KEY = '';
+// Configuration -> Environment ID (eg. "AbC12de3")
+const ATOMIC_ENVIRONMENT_ID = '';
+// Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
+const ATOMIC_STREAM_CONTAINER_ID = '';
+// A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
+const ATOMIC_REQUEST_TOKEN_STRING = '';
+
+const VARIANT_STORAGE_KEY = 'atomic-container-variant';
+const DEFAULT_VARIANT = 'standalone';
+
+// The stream container variants that can be selected from the Container picker. `mount` creates the
+// variant's containers and returns them, so they can be stopped when the variant changes or the user
+// logs out.
+const VARIANTS = [
+  {
+    id: 'standalone',
+    title: 'Standalone',
+    mount: () => [mountStandalone('Standalone')],
+  },
+  {
+    id: 'horizontal',
+    title: 'Standalone (horizontal)',
+    mount: () => [
+      AtomicSDK.embed(
+        document.querySelector('#horizontal-host'),
+        containerConfig('Standalone (horizontal)', {
+          horizontalContainerConfig: {enabled: true, cardWidth: 300},
+        }),
+        true
+      ),
+    ],
+  },
+  {
+    id: 'launcher',
+    title: 'Launcher',
+    mount: () => [AtomicSDK.launch(containerConfig('Launcher'))],
+  },
+  {
+    id: 'single-card',
+    title: 'Single card',
+    mount: () => [mountSingleCard('Single card')],
+  },
+  {
+    id: 'modal',
+    title: 'Modal stream',
+    mount: () => [AtomicSDK.modalStreamContainer(containerConfig('Modal stream'))],
+  },
+  {
+    id: 'multiple',
+    title: 'Multiple containers',
+    mount: () => [
+      mountSingleCard('Single card'),
+      mountStandalone('Standalone'),
+      AtomicSDK.launch(containerConfig('Launcher')),
+    ],
+  },
+];
+
 let deviceToken;
 let loggedIn = false;
 let hasRegisteredForNotifications = false;
 
-let launcherInstance;
-let singleCardInstance;
+let selectedVariant = readStoredVariant();
+let containerInstances = [];
 
-async function registerDeviceForNotificationsWhenReady() {
-  if (deviceToken && loggedIn && !hasRegisteredForNotifications) {
-    console.log('Registering for notifications');
-    try {
-      let registered = await AtomicSDK.registerDeviceForNotifications(
-        deviceToken
-      );
-      hasRegisteredForNotifications = registered;
-      console.log('Registered for notifications', registered);
-    } catch (e) {
-      console.error(e);
-      return;
+function readStoredVariant() {
+  try {
+    const stored = localStorage.getItem(VARIANT_STORAGE_KEY);
+    if (VARIANTS.some((variant) => variant.id === stored)) {
+      return stored;
     }
+  } catch (e) {
+    // Storage unavailable, use the default variant.
+  }
+  return DEFAULT_VARIANT;
+}
+
+function storeVariant(variantId) {
+  try {
+    localStorage.setItem(VARIANT_STORAGE_KEY, variantId);
+  } catch (e) {
+    // Storage unavailable, the selection is not remembered.
+  }
+}
+
+// Callbacks that log to the console with the name of the container that called them, so that callbacks from
+// containers sharing the page can be told apart.
+function loggedCallbacks(label) {
+  return {
+    onSizeChanged: (width, height) => {
+      console.log(`[${label}] onSizeChanged: ${width} x ${height}`);
+    },
+    onCardEvent: (event) => {
+      console.log(`[${label}] onCardEvent: ${event.type}`);
+    },
+    onCardCountChanged: (count) => {
+      console.log(`[${label}] onCardCountChanged: ${count}`);
+    },
+    onLauncherToggled: (isOpen) => {
+      console.log(`[${label}] onLauncherToggled: ${isOpen}`);
+    },
+    onModalStreamToggled: (isOpen) => {
+      console.log(`[${label}] onModalStreamToggled: ${isOpen}`);
+    },
+    onLinkButtonPressed: (payload) => {
+      console.log(`[${label}] onLinkButtonPressed: ${JSON.stringify(payload)}`);
+    },
+    onSubmitButtonPressed: (payload) => {
+      console.log(`[${label}] onSubmitButtonPressed: ${JSON.stringify(payload)}`);
+    },
+  };
+}
+
+function containerConfig(label, options = {}) {
+  return {
+    streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
+    features: {
+      cordova: {
+        enabled: true,
+      },
+    },
+    ...loggedCallbacks(label),
+    ...options,
+  };
+}
+
+function mountStandalone(label) {
+  return AtomicSDK.embed(
+    document.querySelector('#standalone-host'),
+    containerConfig(label)
+  );
+}
+
+function mountSingleCard(label) {
+  return AtomicSDK.singleCard(
+    document.querySelector('#single-card-host'),
+    containerConfig(label)
+  );
+}
+
+function stopContainers() {
+  containerInstances.forEach((container) => container.stop());
+  containerInstances = [];
+}
+
+function mountContainers() {
+  stopContainers();
+
+  const variant = VARIANTS.find(({id}) => id === selectedVariant);
+  console.log(`Mounting the "${variant.title}" container variant`);
+  // `modalStreamContainer` returns nothing when a modal stream is already mounted.
+  containerInstances = variant.mount().filter(Boolean);
+}
+
+function applyVariantLayout() {
+  document.body.dataset.variant = selectedVariant;
+}
+
+function selectVariant(variantId) {
+  selectedVariant = variantId;
+  storeVariant(variantId);
+  applyVariantLayout();
+
+  if (loggedIn) {
+    mountContainers();
+  }
+}
+
+function populateVariantPicker() {
+  const select = document.querySelector('#variantSelect');
+  VARIANTS.forEach(({id, title}) => {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = title;
+    select.appendChild(option);
+  });
+  select.value = selectedVariant;
+}
+
+// Mirrors the push status to the screen as well as the console, so the flow can be followed on a
+// device without attaching a debugger.
+function setPushStatus(message, state) {
+  const status = document.querySelector('#pushStatus');
+  status.textContent = message;
+  status.classList.toggle('is-error', state === 'error');
+  status.classList.toggle('is-success', state === 'success');
+
+  if (state === 'error') {
+    console.error(message);
+  } else {
+    console.log(message);
+  }
+}
+
+// Registration needs both a push token from the device and a logged-in SDK session, and those arrive
+// in either order, so this runs after each and does nothing until both are ready.
+async function registerDeviceForNotificationsWhenReady() {
+  if (!deviceToken || !loggedIn || hasRegisteredForNotifications) {
+    return;
+  }
+
+  setPushStatus('Registering this device for notifications...');
+
+  try {
+    hasRegisteredForNotifications =
+      await AtomicSDK.registerDeviceForNotifications(deviceToken);
+    setPushStatus('This device is registered for notifications.', 'success');
+  } catch (e) {
+    setPushStatus(
+      `Registering this device for notifications failed: ${e.message}`,
+      'error'
+    );
   }
 }
 
 function setupAtomic() {
-  // Configuration -> SDK -> API Host (eg. "https://999-1.client-api.atomic.io")
-  const ATOMIC_API_HOST = '';
-  // Configuration -> SDK -> API keys (eg. "my-api-key")
-  const ATOMIC_API_KEY = '';
-  // Configuration -> Environment ID (eg. "AbC12de3")
-  const ATOMIC_ENVIRONMENT_ID = '';
-  // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
-  const ATOMIC_STREAM_CONTAINER_ID = '';
-  // A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
-  const ATOMIC_REQUEST_TOKEN_STRING = '';
-
   AtomicSDK.initialise(ATOMIC_API_HOST, ATOMIC_API_KEY, ATOMIC_ENVIRONMENT_ID);
 
   AtomicSDK.enableDebugMode(3);
+
+  AtomicSDK.onError = (error) => {
+    console.error('[SDK] onError', error);
+  };
 
   AtomicSDK.setNativeDeviceInfo({
     platform: device.platform,
@@ -69,27 +258,13 @@ function setupAtomic() {
     return ATOMIC_REQUEST_TOKEN_STRING;
   });
 
-  singleCardInstance = AtomicSDK.singleCard(document.querySelector('#embed'), {
-    streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
-    features: {
-      cordova: {
-        enabled: true,
-      },
-    },
-  });
-
-  launcherInstance = AtomicSDK.launch({
-    streamContainerId: ATOMIC_STREAM_CONTAINER_ID,
-    features: {
-      cordova: {
-        enabled: true,
-      },
-    },
-  });
+  mountContainers();
 
   AtomicSDK.registerStreamContainersForNotifications([
     ATOMIC_STREAM_CONTAINER_ID,
-  ]);
+  ]).catch((e) => {
+    console.error('Registering stream containers for notifications failed', e);
+  });
 }
 
 function setupPushNotifications() {
@@ -99,6 +274,8 @@ function setupPushNotifications() {
       alert: 'true',
       badge: 'true',
       sound: 'true',
+      // Show the notification banner even while the app is in the foreground.
+      forceShow: 'true',
     },
   });
 
@@ -109,11 +286,16 @@ function setupPushNotifications() {
     console.log('Device uuid is ', device.uuid);
     console.log(data.registrationType);
     deviceToken = data.registrationId;
-    registerDeviceForNotificationsWhenReady();
+
+    if (loggedIn) {
+      registerDeviceForNotificationsWhenReady();
+    } else {
+      setPushStatus('Push token received. Log in to register this device.');
+    }
   });
 
   push.on('notification', (data) => {
-    console.log('onNotification', data);
+    console.log('onNotification: %j', data);
 
     const notificationData = AtomicSDK.notificationFromPushPayload(
       data.additionalData
@@ -129,6 +311,7 @@ function setupPushNotifications() {
   push.on('error', (e) => {
     console.log('error on push notification, probably simulator');
     console.log(e.message);
+    setPushStatus(`No push token: ${e.message}`, 'error');
   });
 }
 
@@ -138,31 +321,43 @@ function login() {
   document.querySelector('#loginBtn').disabled = true;
   document.querySelector('#logoutBtn').disabled = false;
   loggedIn = true;
-  registerDeviceForNotificationsWhenReady();
+
+  if (deviceToken) {
+    registerDeviceForNotificationsWhenReady();
+  } else {
+    setPushStatus('Logged in. Waiting for a push token.');
+  }
 }
 
 function logout() {
   console.log('logout clicked');
-  AtomicSDK.logout();
+  // Passing true deregisters this device for notifications as part of the logout.
+  AtomicSDK.logout(true);
 
   document.querySelector('#loginBtn').disabled = false;
   document.querySelector('#logoutBtn').disabled = true;
 
   loggedIn = false;
   hasRegisteredForNotifications = false;
+  setPushStatus('Logged out, and the device was deregistered for notifications.');
 
-  singleCardInstance.stop();
-  launcherInstance.stop();
+  // Logging out empties the containers, removing them from the page is left to the app.
+  stopContainers();
 }
 
 function registerObservers() {
   document.querySelector('#loginBtn').addEventListener('click', login);
   document.querySelector('#logoutBtn').addEventListener('click', logout);
+  document
+    .querySelector('#variantSelect')
+    .addEventListener('change', (event) => selectVariant(event.target.value));
 }
 
 function onDeviceReady() {
   console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
 
+  populateVariantPicker();
+  applyVariantLayout();
   setupPushNotifications();
   registerObservers();
 }
