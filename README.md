@@ -6,6 +6,11 @@ native push notifications.
 The app bundles **Atomic Web SDK 26.3.0** as a single local script, `www/js/sdk.js`, downloaded
 from <https://downloads.atomic.io/web-sdk/release/26.3.0/sdk.js>.
 
+> **This is the internal `qa` branch.** It carries CI, Fastlane, the maestro trigger and test
+> rigs for SDK features that are not in a public release yet, and it may be pointed at a
+> non-release SDK bundle. The customer-facing boilerplate is `main`. See
+> [CONTRIBUTING.md](CONTRIBUTING.md).
+
 The app does not run out of the box. You must supply your own configuration values from the
 Atomic Workbench.
 
@@ -75,6 +80,10 @@ setup, run `export LANG=en_US.UTF-8` and try again.
    ATOMIC_CUSTOMER_ID=your-user-id \
    npm run generate-token
    ```
+
+   Internally, pull `keys/atomic_private.pem` from 1Password into a `keys/` folder at the
+   repository root and run `npm run generate-token` with no environment variables — the script
+   defaults to that path and to a demo test user.
 
    > A hardcoded JWT is a demo shortcut. In a real integration the session delegate must return a
    > freshly minted token each time the SDK requests one.
@@ -158,25 +167,85 @@ You can also open `platforms/android` in Android Studio and run from there.
   [push notification guide for React Native](https://documentation.atomic.io/sdks/react-native/react-native-push-notifications)
   are almost identical for Cordova.
 
-The app registers the device for notifications automatically, as soon as both a push token has
-arrived from the operating system and you have logged in — the two can happen in either order.
-The status line under the Log in / Logout buttons reports where that has got to, so the flow can
-be followed on a device without attaching a debugger. Tapping "Logout" deregisters the device as
-part of logging out.
+Registration is **not** automatic on this branch. The device registers only when you tap
+"Register device", so each call is deliberate and can be repeated with a different APNs mode. The
+status line under the buttons reports the outcome of the last call, so push can be tested on a
+device without attaching the Safari inspector; full detail is still logged to the console.
 
 Notification banners are shown even while the app is in the foreground.
 
 To test: run the app on a device or a supported simulator, tap "Log in", then send a card with a
 push notification from the Workbench.
 
-## Updating the bundled SDK
+## Testing the APNs environment (apnsMode)
 
-`www/js/sdk.js` is a plain copy of a released Web SDK bundle. To move to a newer release, download
-it over the top and update the version stated at the top of this file:
+> `apnsMode` is not in Web SDK 26.3.0. It ships in 26.3.1. To test it, point this branch at a
+> bundle that has it with `npm run fetch-sdk -- <url>`.
+
+`registerDeviceForNotifications` and `deregisterDeviceForNotifications` take an optional
+`apnsMode`, telling the Atomic Platform whether the device token belongs to the APNs `sandbox` or
+`prod` environment, or to `both`. It exists because a single `appId` can be configured as two
+notification platforms in the Workbench - one sandbox, one production - and without the mode the
+platform cannot tell which of the two a registration is for, so the request fails.
+
+The header has three controls for this, below the Log in / Logout buttons:
+
+- **APNs mode** - the value sent with the next call. "Not set (omit apnsMode)" sends no `apnsMode`
+  at all, which is exactly how an app written before this option behaves. The choice is remembered
+  between launches.
+- **Register device** - calls `registerDeviceForNotifications` with the selected mode. Enabled once
+  you are logged in and a push token has arrived.
+- **Deregister device** - calls `deregisterDeviceForNotifications` with the selected mode. Enabled
+  once you are logged in.
+
+Tapping **Logout** calls `AtomicSDK.logout(true)`, which deregisters the device as part of the
+logout. The SDK always does that with `apnsMode: "both"`, regardless of the picker.
+
+### Workbench setup
+
+The interesting case needs **one `appId` configured as both a sandbox and a production
+notification platform** in your environment. Set your own environment up that way, and make sure
+the iOS `appId` in `setNativeDeviceInfo()` in `www/js/index.js` matches the
+`ios-CFBundleIdentifier` in `config.xml`.
+
+### What to check
+
+With one `appId` on both sandbox and production configurations:
+
+| Action | Expected |
+| --- | --- |
+| Register with **Not set** | Fails: the platform cannot choose between the two configurations. This is the bug `apnsMode` fixes, and it is what an app on an older SDK does. |
+| Register with **sandbox** / **prod** | Succeeds, registering against that environment only. |
+| Register with **both** | Succeeds, registering against both environments. |
+| Push delivery | A card sent from the Workbench reaches a device registered under the matching environment. A debug build run from Xcode uses the APNs sandbox. |
+| Deregister with **sandbox** / **prod** / **both** | Succeeds. See the limitation below before judging the result. |
+
+With a single notification configuration for the `appId`, every mode should succeed, including
+**Not set** - the option must not break the common setup.
+
+### Known limitation on deregistration
+
+At the time of writing, the client API **ignores `apnsMode` on de-registration for Web SDK
+callers** and removes every registration for the device and app, whichever mode you pick. The
+request still returns success. This is a platform-side issue, not an SDK one, and is tracked
+separately; the SDK sends the value correctly, which you can confirm in the request body in the
+console with debug logging on. Until it is fixed, a selective de-register cannot be verified end
+to end - check the request payload rather than the resulting registrations.
+
+## Choosing the SDK bundle
+
+`www/js/sdk.js` is a committed copy of a Web SDK bundle. Replace it with any other build - a
+release, a release candidate, or a build of an SDK feature branch - with:
 
 ```bash
-curl -o www/js/sdk.js https://downloads.atomic.io/web-sdk/release/<version>/sdk.js
+npm run fetch-sdk                          # the default release
+npm run fetch-sdk -- <url>                 # an explicit bundle URL
+ATOMIC_SDK_URL=<url> npm run fetch-sdk     # same, from the environment
 ```
+
+The script checks the downloaded file carries an Atomic Web SDK banner and prints the version it
+wrote, so the build log records exactly which bundle went in. CI takes the same URL as the
+`sdk_url` pipeline parameter.
 
 ## Debugging
 

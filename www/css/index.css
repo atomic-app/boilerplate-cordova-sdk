@@ -150,12 +150,32 @@ body {
   gap: 8px;
 }
 
-/* Reports the state of push registration on screen, so push can be followed on a device without
-   attaching the Safari inspector. */
-.push-status {
-  margin: 0;
+.secondary-btn {
+  background-color: #6b6b80;
+}
+
+/* Push notification test controls. The status line reports the result of the last register or
+   deregister call on screen, so push can be tested on a device without attaching Safari. */
+.push-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding-top: 12px;
   border-top: 1px solid #d5d5de;
+}
+
+.push-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.push-buttons .modern-btn {
+  flex: 1;
+  padding: 12px 8px;
+}
+
+.push-status {
+  margin: 0;
   font-size: 14px;
   line-height: 1.4;
   color: #4a4a5a;

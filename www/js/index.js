@@ -28,12 +28,24 @@ const ATOMIC_STREAM_CONTAINER_ID = '';
 // A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
 const ATOMIC_REQUEST_TOKEN_STRING = '';
 
-const VARIANT_STORAGE_KEY = 'atomic-container-variant';
+const VARIANT_STORAGE_KEY = 'atomic-qa-container-variant';
 const DEFAULT_VARIANT = 'standalone';
 
-// The stream container variants that can be selected from the Container picker. `mount` creates the
-// variant's containers and returns them, so they can be stopped when the variant changes or the user
-// logs out.
+const APNS_MODE_STORAGE_KEY = 'atomic-qa-apns-mode';
+const DEFAULT_APNS_MODE = 'none';
+
+// The APNs environment passed to registerDeviceForNotifications / deregisterDeviceForNotifications.
+// "none" sends no apnsMode at all, which is how every integration written before the option existed
+// behaves, so it must stay testable alongside the three real values.
+const APNS_MODES = [
+  {id: 'none', title: 'Not set (omit apnsMode)'},
+  {id: 'sandbox', title: 'sandbox'},
+  {id: 'prod', title: 'prod'},
+  {id: 'both', title: 'both'},
+];
+
+// The stream container variants that can be selected for testing. `mount` creates the variant's containers and
+// returns them, so they can be stopped when the variant changes or the user logs out.
 const VARIANTS = [
   {
     id: 'standalone',
@@ -81,9 +93,9 @@ const VARIANTS = [
 
 let deviceToken;
 let loggedIn = false;
-let hasRegisteredForNotifications = false;
 
 let selectedVariant = readStoredVariant();
+let selectedApnsMode = readStoredApnsMode();
 let containerInstances = [];
 
 function readStoredVariant() {
@@ -101,6 +113,26 @@ function readStoredVariant() {
 function storeVariant(variantId) {
   try {
     localStorage.setItem(VARIANT_STORAGE_KEY, variantId);
+  } catch (e) {
+    // Storage unavailable, the selection is not remembered.
+  }
+}
+
+function readStoredApnsMode() {
+  try {
+    const stored = localStorage.getItem(APNS_MODE_STORAGE_KEY);
+    if (APNS_MODES.some((mode) => mode.id === stored)) {
+      return stored;
+    }
+  } catch (e) {
+    // Storage unavailable, use the default mode.
+  }
+  return DEFAULT_APNS_MODE;
+}
+
+function storeApnsMode(modeId) {
+  try {
+    localStorage.setItem(APNS_MODE_STORAGE_KEY, modeId);
   } catch (e) {
     // Storage unavailable, the selection is not remembered.
   }
@@ -200,8 +232,30 @@ function populateVariantPicker() {
   select.value = selectedVariant;
 }
 
-// Mirrors the push status to the screen as well as the console, so the flow can be followed on a
-// device without attaching a debugger.
+function populateApnsModePicker() {
+  const select = document.querySelector('#apnsModeSelect');
+  APNS_MODES.forEach(({id, title}) => {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = title;
+    select.appendChild(option);
+  });
+  select.value = selectedApnsMode;
+}
+
+function selectApnsMode(modeId) {
+  selectedApnsMode = modeId;
+  storeApnsMode(modeId);
+  console.log(`APNs mode set to "${modeId}"`);
+}
+
+// Registration and deregistration are driven by the buttons rather than by the token arriving, so
+// that each call can be made deliberately with a chosen APNs mode, as many times as needed.
+function updatePushButtons() {
+  document.querySelector('#registerBtn').disabled = !(loggedIn && deviceToken);
+  document.querySelector('#deregisterBtn').disabled = !loggedIn;
+}
+
 function setPushStatus(message, state) {
   const status = document.querySelector('#pushStatus');
   status.textContent = message;
@@ -215,22 +269,53 @@ function setPushStatus(message, state) {
   }
 }
 
-// Registration needs both a push token from the device and a logged-in SDK session, and those arrive
-// in either order, so this runs after each and does nothing until both are ready.
-async function registerDeviceForNotificationsWhenReady() {
-  if (!deviceToken || !loggedIn || hasRegisteredForNotifications) {
-    return;
-  }
+function describeApnsMode() {
+  return selectedApnsMode === 'none'
+    ? 'no apnsMode'
+    : `apnsMode "${selectedApnsMode}"`;
+}
 
-  setPushStatus('Registering this device for notifications...');
+// Both calls below pass no options at all when the mode is "none", rather than an empty object, so
+// that the picker exercises the pre-existing call shape exactly as an app on an older SDK makes it.
+async function registerDevice() {
+  setPushStatus(`Registering device with ${describeApnsMode()}...`);
 
   try {
-    hasRegisteredForNotifications =
-      await AtomicSDK.registerDeviceForNotifications(deviceToken);
-    setPushStatus('This device is registered for notifications.', 'success');
+    const registered =
+      selectedApnsMode === 'none'
+        ? await AtomicSDK.registerDeviceForNotifications(deviceToken)
+        : await AtomicSDK.registerDeviceForNotifications(deviceToken, {
+            apnsMode: selectedApnsMode,
+          });
+    setPushStatus(
+      `Registered with ${describeApnsMode()}: ${registered}`,
+      'success'
+    );
   } catch (e) {
     setPushStatus(
-      `Registering this device for notifications failed: ${e.message}`,
+      `Register failed (${describeApnsMode()}): ${e.message}`,
+      'error'
+    );
+  }
+}
+
+async function deregisterDevice() {
+  setPushStatus(`Deregistering device with ${describeApnsMode()}...`);
+
+  try {
+    const deregistered =
+      selectedApnsMode === 'none'
+        ? await AtomicSDK.deregisterDeviceForNotifications()
+        : await AtomicSDK.deregisterDeviceForNotifications({
+            apnsMode: selectedApnsMode,
+          });
+    setPushStatus(
+      `Deregistered with ${describeApnsMode()}: ${deregistered}`,
+      'success'
+    );
+  } catch (e) {
+    setPushStatus(
+      `Deregister failed (${describeApnsMode()}): ${e.message}`,
       'error'
     );
   }
@@ -274,7 +359,6 @@ function setupPushNotifications() {
       alert: 'true',
       badge: 'true',
       sound: 'true',
-      // Show the notification banner even while the app is in the foreground.
       forceShow: 'true',
     },
   });
@@ -286,12 +370,12 @@ function setupPushNotifications() {
     console.log('Device uuid is ', device.uuid);
     console.log(data.registrationType);
     deviceToken = data.registrationId;
-
-    if (loggedIn) {
-      registerDeviceForNotificationsWhenReady();
-    } else {
-      setPushStatus('Push token received. Log in to register this device.');
-    }
+    updatePushButtons();
+    setPushStatus(
+      loggedIn
+        ? 'Push token received. Choose an APNs mode and tap "Register device".'
+        : 'Push token received. Log in to register the device.'
+    );
   });
 
   push.on('notification', (data) => {
@@ -321,25 +405,26 @@ function login() {
   document.querySelector('#loginBtn').disabled = true;
   document.querySelector('#logoutBtn').disabled = false;
   loggedIn = true;
-
-  if (deviceToken) {
-    registerDeviceForNotificationsWhenReady();
-  } else {
-    setPushStatus('Logged in. Waiting for a push token.');
-  }
+  updatePushButtons();
+  setPushStatus(
+    deviceToken
+      ? 'Logged in. Choose an APNs mode and tap "Register device".'
+      : 'Logged in. Waiting for a push token.'
+  );
 }
 
 function logout() {
   console.log('logout clicked');
-  // Passing true deregisters this device for notifications as part of the logout.
+  // Passing true deregisters the device as part of the logout. The SDK does this with
+  // apnsMode "both", so a logout clears the device from each APNs environment.
   AtomicSDK.logout(true);
 
   document.querySelector('#loginBtn').disabled = false;
   document.querySelector('#logoutBtn').disabled = true;
 
   loggedIn = false;
-  hasRegisteredForNotifications = false;
-  setPushStatus('Logged out, and the device was deregistered for notifications.');
+  updatePushButtons();
+  setPushStatus('Logged out, deregistering the device with apnsMode "both".');
 
   // Logging out empties the containers, removing them from the page is left to the app.
   stopContainers();
@@ -351,13 +436,25 @@ function registerObservers() {
   document
     .querySelector('#variantSelect')
     .addEventListener('change', (event) => selectVariant(event.target.value));
+  document.querySelector('#hostPageButton').addEventListener('click', () => {
+    console.log('Host page button pressed');
+  });
+  document
+    .querySelector('#apnsModeSelect')
+    .addEventListener('change', (event) => selectApnsMode(event.target.value));
+  document.querySelector('#registerBtn').addEventListener('click', registerDevice);
+  document
+    .querySelector('#deregisterBtn')
+    .addEventListener('click', deregisterDevice);
 }
 
 function onDeviceReady() {
   console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
 
   populateVariantPicker();
+  populateApnsModePicker();
   applyVariantLayout();
+  updatePushButtons();
   setupPushNotifications();
   registerObservers();
 }

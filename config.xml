@@ -9,6 +9,17 @@
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
 
+    <!-- Not needed by Web SDK 26.3.0, which renders the stream container into a shadow
+         root, but kept on this branch because `npm run fetch-sdk` can point the app at an
+         older or candidate bundle. 26.2.0 and earlier render it in a srcdoc iframe, and
+         without this the cards do not appear at all on iOS.
+
+         It must be "about:*", not "about:blank": CDVAllowList grants the empty-host
+         exemption only to file: and content:, so an "about:blank" entry parses as
+         host="blank" and never matches, because a real about: URL has a nil host. Both
+         about:blank and about:srcdoc have to pass the navigation filter. -->
+    <allow-navigation href="about:*" />
+
     <preference name="EnableViewportScale" value="true"/>
     <preference name="deployment-target" value="15.0"/>
 

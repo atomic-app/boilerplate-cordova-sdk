@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "android": "cordova build android && cordova emulate android",
-    "generate-token": "node scripts/generate-token.js"
+    "generate-token": "node scripts/generate-token.js",
+    "fetch-sdk": "node scripts/fetch-sdk.js"
   },
   "keywords": [
     "ecosystem:cordova"

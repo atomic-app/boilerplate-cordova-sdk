@@ -1,0 +1,100 @@
+# Contributing
+
+## Branches
+
+| Branch | Purpose |
+| --- | --- |
+| `main` | The customer-facing boilerplate. No CI, no Fastlane, no internal credentials, no QA rigs. Only ships APIs that are in a public Web SDK release. |
+| `qa` | This branch. Internal SDK testing: CI, Fastlane, the maestro trigger, QA rigs for unreleased SDK features, and internal token defaults. |
+
+`qa` branches off `main`. When `main` moves, rebase or merge it into `qa` rather than the
+other way round — nothing on `qa` should reach `main` without being reviewed for whether a
+customer should see it.
+
+## Choosing the SDK bundle
+
+`www/js/sdk.js` is a committed copy of a Web SDK bundle. Replace it with any other build using:
+
+```bash
+npm run fetch-sdk                          # the default release
+npm run fetch-sdk -- <url>                 # a release candidate or feature-branch build
+ATOMIC_SDK_URL=<url> npm run fetch-sdk     # same, from the environment
+```
+
+CI takes the same URL as the `sdk_url` string pipeline parameter. Leave it empty to build
+against the bundle committed here.
+
+## CI builds
+
+Every push builds two artifacts on CircleCI, attached to their job — download them from the
+CircleCI job page:
+
+- **iOS device** (`trigger_maestro_tests_ios`): development-signed `HelloCordova.ipa`,
+  installable on registered test-device UDIDs. Testing only — not a TestFlight/App Store build.
+- **Android** (`trigger_maestro_tests_android`): debug `.apk`. Install with
+  `adb install app-debug.apk`.
+
+A third, **iOS Simulator** (`build_ios_simulator`, unsigned zipped `.app`), is opt-in — it does
+not run on every push. Trigger it from CircleCI's "Trigger Pipeline" with the boolean parameter
+`build_for_simulator` set to `true`. Unzip and install with
+`xcrun simctl install <device_id> HelloCordova.app`.
+
+Note that cordova-ios 8 names the generated Xcode project, workspace, scheme and target `App`
+(cordova-ios 7 named them all `HelloCordova`). The built product is still `HelloCordova.app` /
+`HelloCordova.ipa`, which is what the maestro trigger expects.
+
+cordova-android 15.1.0 needs no Gradle or build-tools install step: cordova drives the build
+through the Gradle wrapper it generates (8.14.2), and `cimg/android`'s preinstalled build-tools
+and platforms already satisfy this release's `MIN_BUILD_TOOLS_VERSION: 36.0.0` / `SDK_VERSION: 36`.
+The job does select JDK 17 explicitly, matching AGP 8.10.1's documented minimum. cordova-android
+14 additionally needed Gradle pinned to 8.13, because its build scripts used
+`groovy.util.XmlParser` directly and the image's Groovy 4 Gradle could not resolve it; that was
+fixed in 15.1.0 and the workaround has been removed.
+
+Required CircleCI project environment variables:
+
+| Variable | Job(s) | Contents |
+|---|---|---|
+| `GOOGLE_SERVICES` | Android | `google-services.json`, base64-encoded — same convention as `atomic-sdk-flutter` |
+| `ATOMIC_PRIVATE_KEY` | all | `keys/atomic_private.pem`, base64-encoded, from 1Password |
+| `ATOMIC_CUSTOMER_ID` | all (optional) | plain string; which Workbench test user the generated token authenticates as. Falls back to `scripts/generate-token.js`'s default if unset |
+| `IOS_CERTIFICATE` | iOS device | Apple **Development** certificate `.p12`, base64-encoded — the same kind Xcode's automatic signing uses locally, exported via Keychain Access |
+| `IOS_CERTIFICATE_PASSWORD` | iOS device | export password set when creating the `.p12` |
+| `IOS_PROVISIONING_PROFILE` | iOS device | a **Development** `.mobileprovision` for this app's bundle ID, base64-encoded — must have the test devices' UDIDs registered in the Apple Developer portal, and the Push Notifications capability enabled |
+
+`ATOMIC_PRIVATE_KEY` and `ATOMIC_CUSTOMER_ID` are used the same way for all three builds: each
+generates a fresh JWT from the private key via `scripts/generate-token.js` and substitutes it into
+`www/js/index.js` — nothing token-shaped is ever committed to source or stored as a static secret,
+so there is nothing to expire or refresh.
+
+The `trigger_maestro_tests_ios` job builds with Fastlane (`fastlane/Fastfile`, `Gemfile`), same
+pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` +
+`import_certificate` + `build_ios_app`, exported with `method: development`. There is no committed
+`Gemfile.lock` yet — the local Ruby available while setting this up was too old to generate one
+matching CI's pinned Ruby (3.3.6, installed via `rbenv` in the job itself), so `bundle install`
+resolves fresh each run. Worth generating and committing one later for faster, more deterministic
+installs.
+
+### Triggering sdk-e2e-tests
+
+Both build jobs end with a "Trigger maestro tests" step (`bin/trigger-maestro-tests.sh`, same
+pattern as `atomic-sdk-react-native`/`atomic-sdk-flutter`) that POSTs to `sdk-e2e-tests`'s
+CircleCI pipeline API with the freshly built artifact's URL. It only fires when either:
+
+- the `trigger_maestro_tests_ios` / `trigger_maestro_tests_android` boolean pipeline parameters
+  are passed as `true` via CircleCI's "Trigger Pipeline", or
+- the branch is `qa`.
+
+Otherwise it is a no-op (logged, not skipped silently). An optional `source` string pipeline
+parameter (default `"CORDOVA"`) is passed through to the triggered pipeline as a label.
+
+This needs `CIRCLE_API_TOKEN_BH` available as an env var in these jobs — sibling repos get it via
+a CircleCI context (e.g. `context: ios`) attached to the job. That is not wired up here yet; add a
+`context:` to `trigger_maestro_tests_ios`/`trigger_maestro_tests_android` once one is available for
+this project (referencing a context that does not exist yet breaks config validation for the whole
+pipeline, not just this step, so do not add it speculatively).
+
+`sdk-e2e-tests` has a `maestro/cordova` suite and `cordova-ios`/`cordova-android` cases in
+`registry.yaml`/`run.sh`/`runTestsBrowserstackDevice.sh`/`scripts.sh`, but only on its own
+`qa-342-cordova-maestro-tests` branch so far — not yet merged to its main line. Until that lands,
+triggering against any other branch there will fail with "Invalid SDK".
