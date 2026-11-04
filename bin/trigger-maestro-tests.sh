@@ -37,10 +37,10 @@ function triggerAndroidTests() {
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \
         --data "{
-                    \"branch\":\"main\",
+                    \"branch\":\"qa-369-cordova-maestro-sdk-tests\",
                     \"parameters\":
                         {
-                            \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/app-debug.apk\",
+                            \"app-url\":\"https://output.circle-artifacts.com/output/job/9751fd6b-3d43-4ef7-ad3b-65a4e80feb77/artifacts/0/app-debug.apk\",
                             \"sdk\":\"cordova-android\",
                             \"version\":\"cordova-android-$CIRCLE_BRANCH\",
                             \"source\":\"$source\"

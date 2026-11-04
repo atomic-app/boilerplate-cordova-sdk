@@ -160,12 +160,7 @@ jobs:
           destination: HelloCordova.ipa
       - run:
           name: Trigger maestro tests
-          command: |
-            if [ "<< pipeline.parameters.trigger_maestro_tests_ios >>" = "true" ] || [ "<< pipeline.git.branch >>" = "qa" ]; then
-              ./bin/trigger-maestro-tests.sh triggeriOSTests "<< pipeline.parameters.source >>"
-            else
-              echo "Skipping maestro trigger (trigger_maestro_tests_ios=<< pipeline.parameters.trigger_maestro_tests_ios >>, branch=<< pipeline.git.branch >>)"
-            fi
+          command: ./bin/trigger-maestro-tests.sh triggeriOSTests "<< pipeline.parameters.source >>"
 
   trigger_maestro_tests_android:
     docker:
@@ -211,17 +206,19 @@ jobs:
           destination: app-debug.apk
       - run:
           name: Trigger maestro tests
-          command: |
-            if [ "<< pipeline.parameters.trigger_maestro_tests_android >>" = "true" ] || [ "<< pipeline.git.branch >>" = "qa" ]; then
-              ./bin/trigger-maestro-tests.sh triggerAndroidTests "<< pipeline.parameters.source >>"
-            else
-              echo "Skipping maestro trigger (trigger_maestro_tests_android=<< pipeline.parameters.trigger_maestro_tests_android >>, branch=<< pipeline.git.branch >>)"
-            fi
+          command: ./bin/trigger-maestro-tests.sh triggerAndroidTests "<< pipeline.parameters.source >>"
 
 workflows:
-  build-apps:
+  # One workflow per platform, so each trigger_maestro_tests_* parameter decides whether
+  # that platform's job runs at all.
+  build-ios:
+    when: << pipeline.parameters.trigger_maestro_tests_ios >>
     jobs:
       - trigger_maestro_tests_ios
+
+  build-android:
+    when: << pipeline.parameters.trigger_maestro_tests_android >>
+    jobs:
       - trigger_maestro_tests_android
 
   build_ios_simulator:

@@ -49,6 +49,10 @@ platform :ios do
       workspace: "platforms/ios/App.xcworkspace",
       configuration: "Release",
       scheme: "App",
+      # Without an explicit destination gym picks one from the target's supported
+      # platforms, and under Xcode 27 that came out as visionOS, which the Firebase
+      # pods (pulled in by the push plugin) can't build for.
+      destination: "generic/platform=iOS",
       silent: false,
       clean: true,
       output_directory: "build/ipa",
