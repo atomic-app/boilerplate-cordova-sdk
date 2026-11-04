@@ -6,10 +6,10 @@ parameters:
     default: false
   trigger_maestro_tests_ios:
     type: boolean
-    default: true
+    default: false
   trigger_maestro_tests_android:
     type: boolean
-    default: false
+    default: true
   source:
     type: string
     default: "CORDOVA"
