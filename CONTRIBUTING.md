@@ -71,7 +71,7 @@ The `trigger_maestro_tests_ios` job builds with Fastlane (`fastlane/Fastfile`, `
 pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` +
 `import_certificate` + `build_ios_app`, exported with `method: development`. There is no committed
 `Gemfile.lock` yet — the local Ruby available while setting this up was too old to generate one
-matching CI's pinned Ruby (3.3.6, installed via `rbenv` in the job itself), so `bundle install`
+matching CI's pinned Ruby (3.3.13, installed via `rbenv` in the job itself), so `bundle install`
 resolves fresh each run. Worth generating and committing one later for faster, more deterministic
 installs.
 

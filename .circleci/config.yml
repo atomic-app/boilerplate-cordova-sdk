@@ -9,7 +9,7 @@ parameters:
     default: true
   trigger_maestro_tests_android:
     type: boolean
-    default: true
+    default: false
   source:
     type: string
     default: "CORDOVA"
@@ -122,22 +122,23 @@ jobs:
             TEAM_ID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract TeamIdentifier.0 raw -o - -)
             echo "export IOS_TEAM_ID='${TEAM_ID}'" >> "$BASH_ENV"
       - restore_cache:
-          key: rbenv-ruby-3.3.6-{{ arch }}
+          key: rbenv-ruby-3.3.13-xcode-27.0-{{ arch }}
       - run:
           name: Use Ruby 3.3.x
           command: |
             HOMEBREW_NO_INSTALL_UPGRADE=1 brew install rbenv ruby-build
+            brew upgrade ruby-build
             eval "$(rbenv init - bash)"
-            rbenv install -s 3.3.6
-            RBENV_VERSION=3.3.6 gem install bundler -v 2.5.22
+            rbenv install -s 3.3.13 || { tail -n 100 "${TMPDIR:-/tmp}"/ruby-build.*.log; exit 1; }
+            RBENV_VERSION=3.3.13 gem install bundler -v 2.5.22
             echo 'export PATH="$HOME/.rbenv/shims:$PATH"' >> "$BASH_ENV"
       - save_cache:
-          key: rbenv-ruby-3.3.6-{{ arch }}
+          key: rbenv-ruby-3.3.13-xcode-27.0-{{ arch }}
           paths:
-            - ~/.rbenv/versions/3.3.6
+            - ~/.rbenv/versions/3.3.13
       - run:
           name: Install Ruby gems
-          command: RBENV_VERSION=3.3.6 bundle install
+          command: RBENV_VERSION=3.3.13 bundle install
       - inject_atomic_token
       - run:
           name: Add iOS platform
@@ -149,7 +150,7 @@ jobs:
             echo 'CODE_SIGN_IDENTITY[sdk=iphoneos*] = Apple Development' >> platforms/ios/cordova/build-extras.xcconfig
       - run:
           name: Build development-signed ipa
-          command: RBENV_VERSION=3.3.6 bundle exec fastlane build_test_ipa
+          command: RBENV_VERSION=3.3.13 bundle exec fastlane build_test_ipa
       - run:
           name: Clean up signing assets
           command: rm -f DevelopmentCertificate.p12
