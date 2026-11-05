@@ -83,6 +83,12 @@ let deviceToken;
 let loggedIn = false;
 let hasRegisteredForNotifications = false;
 
+// Bumped on every login and logout, so an async callback can tell whether the session it
+// started in is still current, and discard its result if not.
+let sessionGeneration = 0;
+
+let pendingLogout = null;
+
 let selectedVariant = readStoredVariant();
 let containerInstances = [];
 
@@ -200,6 +206,11 @@ function populateVariantPicker() {
   select.value = selectedVariant;
 }
 
+function setSessionButtons(canLogIn, canLogOut) {
+  document.querySelector('#loginBtn').disabled = !canLogIn;
+  document.querySelector('#logoutBtn').disabled = !canLogOut;
+}
+
 // Mirrors the push status to the screen as well as the console, so the flow can be followed on a
 // device without attaching a debugger.
 function setPushStatus(message, state) {
@@ -222,18 +233,34 @@ async function registerDeviceForNotificationsWhenReady() {
     return;
   }
 
+  const generation = sessionGeneration;
   setPushStatus('Registering this device for notifications...');
 
+  let registered;
+
   try {
-    hasRegisteredForNotifications =
-      await AtomicSDK.registerDeviceForNotifications(deviceToken);
-    setPushStatus('This device is registered for notifications.', 'success');
+    registered = await AtomicSDK.registerDeviceForNotifications(deviceToken);
   } catch (e) {
+    if (generation !== sessionGeneration) {
+      return;
+    }
     setPushStatus(
       `Registering this device for notifications failed: ${e.message}`,
       'error'
     );
+    return;
   }
+
+  // The session ended while the request was in flight, so this result describes a session that
+  // no longer exists. Leaving hasRegisteredForNotifications alone lets the next login register
+  // the device again, rather than skipping it and leaving the device de-registered.
+  if (generation !== sessionGeneration) {
+    console.log('Discarded a registration that completed after the session ended');
+    return;
+  }
+
+  hasRegisteredForNotifications = registered;
+  setPushStatus('This device is registered for notifications.', 'success');
 }
 
 function setupAtomic() {
@@ -315,12 +342,25 @@ function setupPushNotifications() {
   });
 }
 
-function login() {
+async function login() {
   console.log('login clicked');
+  setSessionButtons(false, false);
+
+  // A logout still in flight finishes by clearing the SDK's containers, cached token and host
+  // configuration, which would tear down the session being created here.
+  if (pendingLogout) {
+    setPushStatus('Finishing the previous logout...');
+    try {
+      await pendingLogout;
+    } catch (e) {
+      // logout() has already reported the failure.
+    }
+  }
+
+  sessionGeneration++;
   setupAtomic();
-  document.querySelector('#loginBtn').disabled = true;
-  document.querySelector('#logoutBtn').disabled = false;
   loggedIn = true;
+  setSessionButtons(false, true);
 
   if (deviceToken) {
     registerDeviceForNotificationsWhenReady();
@@ -329,20 +369,32 @@ function login() {
   }
 }
 
-function logout() {
+async function logout() {
   console.log('logout clicked');
-  // Passing true deregisters this device for notifications as part of the logout.
-  AtomicSDK.logout(true);
+  setSessionButtons(false, false);
 
-  document.querySelector('#loginBtn').disabled = false;
-  document.querySelector('#logoutBtn').disabled = true;
-
+  // Ends the session for any registration already in flight, so its result is discarded
+  // instead of marking this device as registered after it has been de-registered.
+  sessionGeneration++;
   loggedIn = false;
   hasRegisteredForNotifications = false;
-  setPushStatus('Logged out, and the device was deregistered for notifications.');
+  setPushStatus('Logging out and deregistering this device...');
+
+  // Passing true deregisters this device for notifications as part of the logout.
+  pendingLogout = AtomicSDK.logout(true);
 
   // Logging out empties the containers, removing them from the page is left to the app.
   stopContainers();
+
+  try {
+    await pendingLogout;
+    setPushStatus('Logged out, and the device was deregistered for notifications.');
+  } catch (e) {
+    setPushStatus(`Logging out failed: ${e.message}`, 'error');
+  } finally {
+    pendingLogout = null;
+    setSessionButtons(true, false);
+  }
 }
 
 function registerObservers() {
