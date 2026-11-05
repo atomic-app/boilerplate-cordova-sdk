@@ -4,12 +4,45 @@
 
 | Branch | Purpose |
 | --- | --- |
-| `main` | The customer-facing boilerplate. No CI, no Fastlane, no internal credentials, no QA rigs. Only ships APIs that are in a public Web SDK release. |
+| `main` | The customer-facing boilerplate. No Fastlane, no internal credentials, no QA rigs, and no CI beyond the one sync workflow described below. Only ships APIs that are in a public Web SDK release. |
 | `qa` | This branch. Internal SDK testing: CI, Fastlane, the maestro trigger, QA rigs for unreleased SDK features, and internal token defaults. |
 
 `qa` branches off `main`. When `main` moves, rebase or merge it into `qa` rather than the
 other way round — nothing on `qa` should reach `main` without being reviewed for whether a
 customer should see it.
+
+### Keeping `qa` current with `main`
+
+Testing on `qa` is only meaningful if it reflects what customers actually get from `main`, so
+`main` is merged into `qa` as it moves, not in a batch before a release.
+
+`.github/workflows/sync-main-to-qa.yml` does the opening part of that automatically. On every
+push to `main` it checks whether `qa` already contains `main` and, if not, opens a pull request
+merging `main` into `qa`. An already-open sync PR is left alone: GitHub keeps it current as more
+commits land on `main`, so there is only ever one.
+
+That workflow is the one exception to `main` carrying no CI. It has to live there: a
+push-triggered workflow runs the copy of itself that exists in the branch that was pushed, so a
+copy on `qa` alone would never fire for a push to `main`. Scheduled and manually dispatched
+workflows are no way around it - both run from the default branch, which is also `main`. Keep it
+the only workflow on `main`, and keep it self-explanatory: this is a public repository, so anyone
+cloning the boilerplate gets it along with everything else. It is inert for them - it looks for a
+`qa` branch, finds none in their fork, and stops.
+
+**The workflow never merges.** It only opens the PR, for three reasons worth keeping in mind
+when resolving one:
+
+- The two branches diverge across most of the shared files - `README.md`, `www/js/index.js`,
+  `config.xml` and `package.json` among them - so a sync PR conflicts routinely. That is expected,
+  not a sign anything is wrong. Resolve conflicts on `qa`, keeping the QA rigs and internal
+  defaults, and take `main`'s version of anything customer-facing.
+- A change on `main` can need a matching change to a QA rig before it is testable - a new SDK
+  option usually wants a control in the header, for example - and that work belongs in the sync
+  PR.
+- Merging is the point at which someone confirms `qa` still builds and still tests what it is
+  meant to, which CI alone does not establish.
+
+If the workflow is ever unavailable, the same thing by hand:
 
 ## Choosing the SDK bundle
 
