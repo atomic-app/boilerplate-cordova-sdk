@@ -67,19 +67,21 @@ setup, run `export LANG=en_US.UTF-8` and try again.
    // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
    const ATOMIC_STREAM_CONTAINER_ID = '';
    // A JWT token generated following the SDK Authentication guide
-   const ATOMIC_REQUEST_TOKEN_STRING = '';
+   const ATOMIC_REQUEST_TOKEN_STRING = window.ATOMIC_GENERATED_TOKEN || '';
    ```
 
-   The last value is a JWT, signed per the
+   The token is a JWT, signed per the
    [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). If you have the
-   private key whose public key is registered in the Workbench, you can generate one and write it
-   into `www/js/index.js` with:
+   private key whose public key is registered in the Workbench, generate one with:
 
    ```bash
    ATOMIC_PRIVATE_KEY_PATH=/path/to/private.pem \
    ATOMIC_CUSTOMER_ID=your-user-id \
    npm run generate-token
    ```
+
+   That writes `www/js/token.js`. To supply a token another way, set
+   `ATOMIC_REQUEST_TOKEN_STRING` in `index.js` directly.
 
    Internally, pull `keys/atomic_private.pem` from 1Password into a `keys/` folder at the
    repository root and run `npm run generate-token` with no environment variables — the script

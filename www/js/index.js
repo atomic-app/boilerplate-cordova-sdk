@@ -25,8 +25,10 @@ const ATOMIC_API_KEY = '';
 const ATOMIC_ENVIRONMENT_ID = '';
 // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
 const ATOMIC_STREAM_CONTAINER_ID = '';
-// A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
-const ATOMIC_REQUEST_TOKEN_STRING = '';
+// A JWT token generated following the SDK Authentication guide.
+// `npm run generate-token` writes one to www/js/token.js, which is loaded before this file.
+// Set it here instead if you prefer.
+const ATOMIC_REQUEST_TOKEN_STRING = window.ATOMIC_GENERATED_TOKEN || '';
 
 const VARIANT_STORAGE_KEY = 'atomic-qa-container-variant';
 const DEFAULT_VARIANT = 'standalone';
@@ -93,6 +95,12 @@ const VARIANTS = [
 
 let deviceToken;
 let loggedIn = false;
+
+// Bumped on every login and logout, so an async callback can tell whether the session it
+// started in is still current, and discard its result if not.
+let sessionGeneration = 0;
+
+let pendingLogout = null;
 
 let selectedVariant = readStoredVariant();
 let selectedApnsMode = readStoredApnsMode();
@@ -249,6 +257,11 @@ function selectApnsMode(modeId) {
   console.log(`APNs mode set to "${modeId}"`);
 }
 
+function setSessionButtons(canLogIn, canLogOut) {
+  document.querySelector('#loginBtn').disabled = !canLogIn;
+  document.querySelector('#logoutBtn').disabled = !canLogOut;
+}
+
 // Registration and deregistration are driven by the buttons rather than by the token arriving, so
 // that each call can be made deliberately with a chosen APNs mode, as many times as needed.
 function updatePushButtons() {
@@ -278,47 +291,72 @@ function describeApnsMode() {
 // Both calls below pass no options at all when the mode is "none", rather than an empty object, so
 // that the picker exercises the pre-existing call shape exactly as an app on an older SDK makes it.
 async function registerDevice() {
+  const generation = sessionGeneration;
   setPushStatus(`Registering device with ${describeApnsMode()}...`);
 
+  let registered;
+
   try {
-    const registered =
-      selectedApnsMode === 'none'
-        ? await AtomicSDK.registerDeviceForNotifications(deviceToken)
-        : await AtomicSDK.registerDeviceForNotifications(deviceToken, {
-            apnsMode: selectedApnsMode,
-          });
-    setPushStatus(
-      `Registered with ${describeApnsMode()}: ${registered}`,
-      'success'
-    );
+    if (selectedApnsMode === 'none') {
+      registered = await AtomicSDK.registerDeviceForNotifications(deviceToken);
+    } else {
+      registered = await AtomicSDK.registerDeviceForNotifications(deviceToken, {
+        apnsMode: selectedApnsMode,
+      });
+    }
   } catch (e) {
+    if (generation !== sessionGeneration) {
+      return;
+    }
     setPushStatus(
       `Register failed (${describeApnsMode()}): ${e.message}`,
       'error'
     );
+    return;
   }
+
+  // The session ended while the request was in flight, so this result describes a session that
+  // no longer exists. Reporting it would claim the device is registered when the logout has
+  // just de-registered it.
+  if (generation !== sessionGeneration) {
+    console.log('Discarded a registration that completed after the session ended');
+    return;
+  }
+
+  setPushStatus(`Registered with ${describeApnsMode()}: ${registered}`, 'success');
 }
 
 async function deregisterDevice() {
+  const generation = sessionGeneration;
   setPushStatus(`Deregistering device with ${describeApnsMode()}...`);
 
+  let deregistered;
+
   try {
-    const deregistered =
-      selectedApnsMode === 'none'
-        ? await AtomicSDK.deregisterDeviceForNotifications()
-        : await AtomicSDK.deregisterDeviceForNotifications({
-            apnsMode: selectedApnsMode,
-          });
-    setPushStatus(
-      `Deregistered with ${describeApnsMode()}: ${deregistered}`,
-      'success'
-    );
+    if (selectedApnsMode === 'none') {
+      deregistered = await AtomicSDK.deregisterDeviceForNotifications();
+    } else {
+      deregistered = await AtomicSDK.deregisterDeviceForNotifications({
+        apnsMode: selectedApnsMode,
+      });
+    }
   } catch (e) {
+    if (generation !== sessionGeneration) {
+      return;
+    }
     setPushStatus(
       `Deregister failed (${describeApnsMode()}): ${e.message}`,
       'error'
     );
+    return;
   }
+
+  if (generation !== sessionGeneration) {
+    console.log('Discarded a de-registration that completed after the session ended');
+    return;
+  }
+
+  setPushStatus(`Deregistered with ${describeApnsMode()}: ${deregistered}`, 'success');
 }
 
 function setupAtomic() {
@@ -401,35 +439,62 @@ function setupPushNotifications() {
   });
 }
 
-function login() {
+async function login() {
   console.log('login clicked');
+  setSessionButtons(false, false);
+
+  // A logout still in flight finishes by clearing the SDK's containers, cached token and host
+  // configuration, which would tear down the session being created here and leave every later
+  // register failing until the next clean login.
+  if (pendingLogout) {
+    setPushStatus('Finishing the previous logout...');
+    try {
+      await pendingLogout;
+    } catch (e) {
+      // logout() has already reported the failure.
+    }
+  }
+
+  sessionGeneration++;
   setupAtomic();
-  document.querySelector('#loginBtn').disabled = true;
-  document.querySelector('#logoutBtn').disabled = false;
   loggedIn = true;
+  setSessionButtons(false, true);
   updatePushButtons();
-  setPushStatus(
-    deviceToken
-      ? 'Logged in. Choose an APNs mode and tap "Register device".'
-      : 'Logged in. Waiting for a push token.'
-  );
+
+  if (deviceToken) {
+    setPushStatus('Logged in. Choose an APNs mode and tap "Register device".');
+  } else {
+    setPushStatus('Logged in. Waiting for a push token.');
+  }
 }
 
-function logout() {
+async function logout() {
   console.log('logout clicked');
-  // Passing true deregisters the device as part of the logout. The SDK does this with
-  // apnsMode "both", so a logout clears the device from each APNs environment.
-  AtomicSDK.logout(true);
+  setSessionButtons(false, false);
 
-  document.querySelector('#loginBtn').disabled = false;
-  document.querySelector('#logoutBtn').disabled = true;
-
+  // Ends the session for any register or de-register already in flight, so its result is
+  // discarded rather than reported against the session that follows.
+  sessionGeneration++;
   loggedIn = false;
   updatePushButtons();
-  setPushStatus('Logged out, deregistering the device with apnsMode "both".');
+  setPushStatus('Logging out, deregistering the device with apnsMode "both"...');
+
+  // Passing true deregisters the device as part of the logout. The SDK does this with
+  // apnsMode "both", so a logout clears the device from each APNs environment.
+  pendingLogout = AtomicSDK.logout(true);
 
   // Logging out empties the containers, removing them from the page is left to the app.
   stopContainers();
+
+  try {
+    await pendingLogout;
+    setPushStatus('Logged out, and the device was deregistered with apnsMode "both".');
+  } catch (e) {
+    setPushStatus(`Logging out failed: ${e.message}`, 'error');
+  } finally {
+    pendingLogout = null;
+    setSessionButtons(true, false);
+  }
 }
 
 function registerObservers() {

@@ -96,9 +96,9 @@ Required CircleCI project environment variables:
 | `IOS_PROVISIONING_PROFILE` | iOS device | a **Development** `.mobileprovision` for this app's bundle ID, base64-encoded — must have the test devices' UDIDs registered in the Apple Developer portal, and the Push Notifications capability enabled |
 
 `ATOMIC_PRIVATE_KEY` and `ATOMIC_CUSTOMER_ID` are used the same way for all three builds: each
-generates a fresh JWT from the private key via `scripts/generate-token.js` and substitutes it into
-`www/js/index.js` — nothing token-shaped is ever committed to source or stored as a static secret,
-so there is nothing to expire or refresh.
+generates a fresh JWT from the private key via `scripts/generate-token.js`, which writes it to
+`www/js/token.js`. That file is gitignored — nothing token-shaped is ever committed to source or
+stored as a static secret, so there is nothing to expire or refresh.
 
 The `trigger_maestro_tests_ios` job builds with Fastlane (`fastlane/Fastfile`, `Gemfile`), same
 pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` +
