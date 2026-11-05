@@ -24,14 +24,21 @@
         Customize this policy to fit your own app's needs. For more guidance, please refer to the docs:
             https://cordova.apache.org/docs/en/latest/
         Some notes:
-            * https://ssl.gstatic.com is required only on Android and is needed for TalkBack to function properly
-            * Disables use of inline scripts in order to mitigate risk of XSS vulnerabilities. To change this:
-                * Enable inline JS: add 'unsafe-inline' to default-src
-            * *.atomic.io (rather than a specific *.client-api.atomic.io / *.client-api.staging.atomic.io
-              pair) covers whichever API host you configure ATOMIC_API_HOST to in index.js - production,
-              staging, or any other Atomic-hosted environment - with no CSP edit needed per environment
+            * script-src stays 'self'. The Atomic Web SDK is bundled locally as js/sdk.js and loads
+              no remote script, so no Atomic host belongs here. Atomic hosts appear in connect-src
+              only, which is what the SDK actually needs.
+            * 'unsafe-eval' is required: the SDK compiles an icon error handler with Function() when
+              an icon fails to load. Inline <script> is not allowed ('unsafe-inline' is absent).
+            * https://ssl.gstatic.com is required only on Android, for TalkBack.
+            * *.atomic.io in connect-src (rather than a specific *.client-api.atomic.io /
+              *.client-api.staging.atomic.io pair) covers whichever API host you configure
+              ATOMIC_API_HOST to in index.js - production, staging, or any other Atomic-hosted
+              environment - with no CSP edit needed per environment.
+            * font-src, img-src and media-src are deliberately broad: card content and stream
+              container themes are authored in the Workbench and can reference assets on any host.
+              Narrow them if you control which hosts your own cards use.
         -->
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.atomic.io https://ssl.gstatic.com; style-src 'self' 'unsafe-inline'; media-src * https://*.atomic.io; font-src 'self' https://fonts.gstatic.com/ data:; img-src 'self' * data: content: https://*.atomic.io; frame-src blob:; connect-src https://*.atomic.io wss://*.atomic.io;">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-eval' https://ssl.gstatic.com; style-src 'self' 'unsafe-inline'; media-src *; font-src 'self' https: data:; img-src 'self' * data: content:; frame-src blob:; connect-src https://*.atomic.io wss://*.atomic.io;">
         <meta name="format-detection" content="telephone=no">
         <meta name="msapplication-tap-highlight" content="no">
         <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover, user-scalable=no">
