@@ -42,6 +42,9 @@
     <body>
         <script src="cordova.js"></script>
         <script src="js/sdk.js"></script>
+        <!-- Written by `npm run generate-token`. It does not exist until you run that script; index.js falls back to
+             its empty placeholder, so the app loads either way. -->
+        <script src="js/token.js"></script>
         <script src="js/index.js"></script>
 
         <header class="app-header">

@@ -67,19 +67,21 @@ setup, run `export LANG=en_US.UTF-8` and try again.
    // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
    const ATOMIC_STREAM_CONTAINER_ID = '';
    // A JWT token generated following the SDK Authentication guide
-   const ATOMIC_REQUEST_TOKEN_STRING = '';
+   const ATOMIC_REQUEST_TOKEN_STRING = window.ATOMIC_GENERATED_TOKEN || '';
    ```
 
-   The last value is a JWT, signed per the
+   The token is a JWT, signed per the
    [SDK authentication guide](https://documentation.atomic.io/sdks/auth-SDK). If you have the
-   private key whose public key is registered in the Workbench, you can generate one and write it
-   into `www/js/index.js` with:
+   private key whose public key is registered in the Workbench, generate one with:
 
    ```bash
    ATOMIC_PRIVATE_KEY_PATH=/path/to/private.pem \
    ATOMIC_CUSTOMER_ID=your-user-id \
    npm run generate-token
    ```
+
+   That writes `www/js/token.js`. To supply a token another way, set
+   `ATOMIC_REQUEST_TOKEN_STRING` in `index.js` directly.
 
    Internally, pull `keys/atomic_private.pem` from 1Password into a `keys/` folder at the
    repository root and run `npm run generate-token` with no environment variables — the script
@@ -159,6 +161,30 @@ You can also open `platforms/android` in Android Studio and run from there.
 
 ## Push notifications
 
+Registration is **not** automatic on this branch. The device registers only when you tap
+"Register device", so each call is deliberate and can be repeated with a different APNs mode. The
+status line under the buttons reports the outcome of the last call, so push can be tested on a
+device without attaching an inspector; full detail is still logged to the console.
+
+To test on either platform: run the app, tap "Log in", tap "Register device", then send a card
+with a push notification from the Workbench. Tapping "Logout" calls `AtomicSDK.logout(true)`,
+which deregisters the device, so a card sent afterwards should not arrive.
+
+Each platform needs its own notification platform configured in the Atomic Workbench, keyed on
+the `appId` that `setNativeDeviceInfo()` sends for that platform in `www/js/index.js`:
+
+| Platform | `appId` sent | Workbench configuration |
+| --- | --- | --- |
+| iOS | the `ios-CFBundleIdentifier` attribute in `config.xml` (`com.ios.atomic.boilerplate.cordova`) | APNs certificate or key |
+| Android | the `widget` element's `id` in `config.xml` (`com.atomic.boilerplate.cordova`) | FCM service account key |
+
+The two are deliberately different values, so registering only the iOS bundle identifier leaves
+Android unregistered. The setup steps in the
+[push notification guide for React Native](https://documentation.atomic.io/sdks/react-native/react-native-push-notifications)
+are almost identical for Cordova.
+
+### iOS
+
 - Push notifications work on the iOS Simulator, provided you are on macOS 13 or later on a Mac
   with Apple silicon or a T2 chip, running an iOS 16 or later simulator. The simulator registers
   with APNs and gets its own device token, tied to that simulator on that Mac. Only debug builds
@@ -167,20 +193,50 @@ You can also open `platforms/android` in Android Studio and run from there.
 - You can also deliver a payload locally, without involving APNs, with
   `xcrun simctl push <device> com.ios.atomic.boilerplate.cordova payload.json`. That exercises the
   app's handling of a notification, but not registration or delivery.
-- Your bundle identifier needs an APNs certificate or key configured as a notification platform in
-  the Atomic Workbench. The setup steps in the
-  [push notification guide for React Native](https://documentation.atomic.io/sdks/react-native/react-native-push-notifications)
-  are almost identical for Cordova.
+- Banners are shown even while the app is in the foreground, because `PushNotification.init()`
+  passes `forceShow: 'true'` in its `ios` options.
 
-Registration is **not** automatic on this branch. The device registers only when you tap
-"Register device", so each call is deliberate and can be repeated with a different APNs mode. The
-status line under the buttons reports the outcome of the last call, so push can be tested on a
-device without attaching the Safari inspector; full detail is still logged to the console.
+### Android
 
-Notification banners are shown even while the app is in the foreground.
+- An emulator is enough, provided its system image includes Google Play services - a "Google APIs"
+  or "Google Play" image, not a plain AOSP one. Without them FCM never issues a token, and
+  `PushNotification.init()` fails with "The FCM token was undefined". Confirm with
+  `adb shell pm list packages | grep com.google.android.gms`.
+- `google-services.json` must come from the same Firebase project whose service account key is
+  configured in the Workbench. If they differ, registration still succeeds and pushes are simply
+  never delivered, because the sending project is not the one the app is registered against.
+- `apnsMode` is iOS-only. Leave the picker on "Not set (omit apnsMode)" when testing Android.
+- `PushNotification.init()` passes `forceShow: true` in its `android` options so a banner is drawn
+  when a push arrives while the app is in the foreground. Without it the plugin hands the payload
+  to the `notification` handler and draws nothing at all, which looks exactly like a push that was
+  never delivered.
 
-To test: run the app on a device or a supported simulator, tap "Log in", then send a card with a
-push notification from the Workbench.
+`forceShow` also changes **when** the `notification` handler runs, and so when
+`AtomicSDK.trackPushNotificationReceived()` reports the push:
+
+| App state | Banner | `notification` handler and tracking |
+| --- | --- | --- |
+| Foreground | Shown | On tap |
+| Background | Shown | On tap |
+
+With `forceShow` off, a push arriving in the foreground fired the handler on arrival and drew no
+banner. The plugin's foreground paths are mutually exclusive - `FCMService.onMessageReceived`
+either hands the payload to JS or posts a notification, never both, unless the payload sets
+`content-available: 1`, which Atomic's does not. Showing the banner is the more realistic
+behaviour for a boilerplate, so losing arrival-time tracking in the foreground is an accepted
+trade-off rather than an oversight. Note it when reading push analytics from an Android test run:
+an untapped notification is not reported as received.
+
+To follow delivery on Android, watch logcat:
+
+```bash
+adb logcat | grep -E "cordova-plugin-push|chromium"
+```
+
+A delivered push logs `onMessageReceived (from=<sender id>)`, then `Force & Is In Foreground` (or
+`In Background`) and `Create Notification`. If none of those appear while another app on the same
+device receives the card, the device is not registered - check the `appId` and the Workbench
+configuration above rather than the plugin.
 
 ## Testing the APNs environment (apnsMode)
 
