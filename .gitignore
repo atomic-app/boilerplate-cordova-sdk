@@ -34,5 +34,8 @@ node_modules/
 # JWT signing key - never commit one
 /keys/
 
+# Written by `npm run generate-token`, and holds a real signed token
+/www/js/token.js
+
 # Xcode build output
 /build/

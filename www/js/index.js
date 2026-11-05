@@ -25,8 +25,10 @@ const ATOMIC_API_KEY = '';
 const ATOMIC_ENVIRONMENT_ID = '';
 // Configuration -> SDK -> Stream containers -> ID (eg. "123abcde")
 const ATOMIC_STREAM_CONTAINER_ID = '';
-// A JWT token generated following the SDK Authentication guide (eg. "ey2askjhfakshjfakjhasjj...ashgfjahgjhagsjfhga")
-const ATOMIC_REQUEST_TOKEN_STRING = '';
+// A JWT token generated following the SDK Authentication guide.
+// `npm run generate-token` writes one to www/js/token.js, which is loaded before this file.
+// Set it here instead if you prefer.
+const ATOMIC_REQUEST_TOKEN_STRING = window.ATOMIC_GENERATED_TOKEN || '';
 
 const VARIANT_STORAGE_KEY = 'atomic-container-variant';
 const DEFAULT_VARIANT = 'standalone';
