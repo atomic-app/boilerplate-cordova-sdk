@@ -354,7 +354,9 @@ function setupAtomic() {
 
 function setupPushNotifications() {
   const push = PushNotification.init({
-    android: {},
+    android: {
+      forceShow: true,
+    },
     ios: {
       alert: 'true',
       badge: 'true',
