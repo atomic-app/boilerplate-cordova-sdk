@@ -37,7 +37,7 @@ function triggerAndroidTests() {
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \
         --data "{
-                    \"branch\":\"qa-369-cordova-appium-sdk-testss\",
+                    \"branch\":\"qa-369-cordova-appium-sdk-tests\",
                     \"parameters\":
                         {
                             \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/app-debug.apk\",
