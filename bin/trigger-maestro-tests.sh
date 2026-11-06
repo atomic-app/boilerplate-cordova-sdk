@@ -14,7 +14,7 @@ function triggeriOSTests() {
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \
         --data "{
-                    \"branch\":\"main\",
+                    \"branch\":\"qa-369-cordova-appium-sdk-tests\",
                     \"parameters\":
                         {
                             \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/HelloCordova.ipa\",
@@ -32,12 +32,12 @@ function triggerAndroidTests() {
     response=$(
     curl \
         --location \
-        --url "https://circleci.com/api/v2/project/github/atomic-app/sdk-e2e-tests/pipeline" \
+        --url "https://circleci.com/api/v2/project/github/atomic-app/atomic-e2e-tests/pipeline" \
         --request POST \
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \
         --data "{
-                    \"branch\":\"qa-369-cordova-maestro-sdk-tests\",
+                    \"branch\":\"qa-369-cordova-appium-sdk-testss\",
                     \"parameters\":
                         {
                             \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/app-debug.apk\",
