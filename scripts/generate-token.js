@@ -20,7 +20,7 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 
-const DEFAULT_CUSTOMER_ID = '3e0bab06-be2d-4126-a01f-3643805c459b';
+const DEFAULT_CUSTOMER_ID = 'd7279e6b-e6b7-4a4a-9235-7d5acadc6c13';
 
 const CONFIG_CONSTANTS = [
   'ATOMIC_API_HOST',
