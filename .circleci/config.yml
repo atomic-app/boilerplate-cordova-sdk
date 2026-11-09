@@ -160,7 +160,7 @@ jobs:
           destination: HelloCordova.ipa
       - run:
           name: Trigger maestro tests
-          command: ./bin/trigger-maestro-tests.sh triggeriOSTests "<< pipeline.parameters.source >>"
+          command: ./bin/trigger-cordova-tests.sh triggeriOSTests "<< pipeline.parameters.source >>"
 
   trigger_maestro_tests_android:
     docker:
@@ -206,7 +206,7 @@ jobs:
           destination: app-debug.apk
       - run:
           name: Trigger maestro tests
-          command: ./bin/trigger-maestro-tests.sh triggerAndroidTests "<< pipeline.parameters.source >>"
+          command: ./bin/trigger-cordova-tests.sh triggerAndroidTests "<< pipeline.parameters.source >>"
 
 workflows:
   # One workflow per platform, so each trigger_maestro_tests_* parameter decides whether

@@ -111,7 +111,7 @@ installs.
 
 ### Triggering sdk-e2e-tests
 
-Both build jobs end with a "Trigger maestro tests" step (`bin/trigger-maestro-tests.sh`, same
+Both build jobs end with a "Trigger maestro tests" step (`bin/trigger-cordova-tests.sh`, same
 pattern as `atomic-sdk-react-native`/`atomic-sdk-flutter`) that POSTs to `sdk-e2e-tests`'s
 CircleCI pipeline API with the freshly built artifact's URL. It runs whenever its job does, so the
 `trigger_maestro_tests_ios` / `trigger_maestro_tests_android` parameters above control both the
