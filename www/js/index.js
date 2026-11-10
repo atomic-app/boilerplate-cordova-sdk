@@ -515,8 +515,28 @@ function registerObservers() {
     .addEventListener('click', deregisterDevice);
 }
 
+const LAUNCHER_BUTTON_TEST_ID = 'Notifications';
+
+function tagLauncherButton() {
+  const button = document.querySelector(
+    '[data-testid="launcher-button"]:not([id])'
+  );
+  if (button) {
+    button.id = LAUNCHER_BUTTON_TEST_ID;
+  }
+}
+
+function observeLauncherButton() {
+  tagLauncherButton();
+  new MutationObserver(tagLauncherButton).observe(document.body, {
+    childList: true,
+  });
+}
+
 function onDeviceReady() {
   console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
+
+  observeLauncherButton();
 
   populateVariantPicker();
   populateApnsModePicker();

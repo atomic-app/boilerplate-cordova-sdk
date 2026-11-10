@@ -59,8 +59,9 @@ against the bundle committed here.
 
 ## CI builds
 
-Every push builds two artifacts on CircleCI, attached to their job — download them from the
-CircleCI job page:
+Pushes build up to two artifacts on CircleCI, attached to their job — download them from the
+CircleCI job page. Each job runs only when its boolean pipeline parameter is `true`; iOS defaults
+to `true` and Android to `false`, and either can be overridden from "Trigger Pipeline":
 
 - **iOS device** (`trigger_maestro_tests_ios`): development-signed `HelloCordova.ipa`,
   installable on registered test-device UDIDs. Testing only — not a TestFlight/App Store build.
@@ -104,21 +105,17 @@ The `trigger_maestro_tests_ios` job builds with Fastlane (`fastlane/Fastfile`, `
 pattern as `action-cards-ios-sdk` and `atomic-sdk-flutter`: `setup_circle_ci` +
 `import_certificate` + `build_ios_app`, exported with `method: development`. There is no committed
 `Gemfile.lock` yet — the local Ruby available while setting this up was too old to generate one
-matching CI's pinned Ruby (3.3.6, installed via `rbenv` in the job itself), so `bundle install`
+matching CI's pinned Ruby (3.3.13, installed via `rbenv` in the job itself), so `bundle install`
 resolves fresh each run. Worth generating and committing one later for faster, more deterministic
 installs.
 
 ### Triggering sdk-e2e-tests
 
-Both build jobs end with a "Trigger maestro tests" step (`bin/trigger-maestro-tests.sh`, same
+Both build jobs end with a "Trigger maestro tests" step (`bin/trigger-cordova-tests.sh`, same
 pattern as `atomic-sdk-react-native`/`atomic-sdk-flutter`) that POSTs to `sdk-e2e-tests`'s
-CircleCI pipeline API with the freshly built artifact's URL. It only fires when either:
-
-- the `trigger_maestro_tests_ios` / `trigger_maestro_tests_android` boolean pipeline parameters
-  are passed as `true` via CircleCI's "Trigger Pipeline", or
-- the branch is `qa`.
-
-Otherwise it is a no-op (logged, not skipped silently). An optional `source` string pipeline
+CircleCI pipeline API with the freshly built artifact's URL. It runs whenever its job does, so the
+`trigger_maestro_tests_ios` / `trigger_maestro_tests_android` parameters above control both the
+build and the trigger. An optional `source` string pipeline
 parameter (default `"CORDOVA"`) is passed through to the triggered pipeline as a label.
 
 This needs `CIRCLE_API_TOKEN_BH` available as an env var in these jobs — sibling repos get it via

@@ -9,7 +9,7 @@ function triggeriOSTests() {
     response=$(
     curl \
         --location \
-        --url "https://circleci.com/api/v2/project/github/atomic-app/sdk-e2e-tests/pipeline" \
+        --url "https://circleci.com/api/v2/project/github/atomic-app/atomic-e2e-tests/pipeline" \
         --request POST \
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \
@@ -32,7 +32,7 @@ function triggerAndroidTests() {
     response=$(
     curl \
         --location \
-        --url "https://circleci.com/api/v2/project/github/atomic-app/sdk-e2e-tests/pipeline" \
+        --url "https://circleci.com/api/v2/project/github/atomic-app/atomic-e2e-tests/pipeline" \
         --request POST \
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \

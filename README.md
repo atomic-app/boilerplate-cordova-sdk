@@ -87,6 +87,11 @@ setup, run `export LANG=en_US.UTF-8` and try again.
    repository root and run `npm run generate-token` with no environment variables — the script
    defaults to that path and to a demo test user.
 
+   `npm run generate-token` also fills in the other four constants from `ATOMIC_API_HOST`,
+   `ATOMIC_API_KEY`, `ATOMIC_ENVIRONMENT_ID` and `ATOMIC_STREAM_CONTAINER_ID` when those are set
+   in the environment, which is how CI configures the app. Any that are unset keep the value
+   already in `index.js`.
+
    > A hardcoded JWT is a demo shortcut. In a real integration the session delegate must return a
    > freshly minted token each time the SDK requests one.
 
