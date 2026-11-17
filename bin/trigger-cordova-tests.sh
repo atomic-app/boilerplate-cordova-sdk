@@ -14,13 +14,14 @@ function triggeriOSTests() {
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \
         --data "{
-                    \"branch\":\"main\",
+                    \"branch\":\"qa-369-cordova-fixes\",
                     \"parameters\":
                         {
                             \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/HelloCordova.ipa\",
                             \"sdk\":\"cordova-ios\",
                             \"version\":\"cordova-ios-$CIRCLE_BRANCH\",
-                            \"source\":\"$source\"
+                            \"source\":\"$source\",
+                            \"variant\":\"$variant\"
                         }
                 }"
     )
@@ -37,13 +38,14 @@ function triggerAndroidTests() {
         --header "Circle-Token: $CIRCLE_API_TOKEN_BH" \
         --header "content-type: application/json" \
         --data "{
-                    \"branch\":\"main\",
+                    \"branch\":\"qa-369-cordova-fixes\",
                     \"parameters\":
                         {
                             \"app-url\":\"https://output.circle-artifacts.com/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/app-debug.apk\",
                             \"sdk\":\"cordova-android\",
                             \"version\":\"cordova-android-$CIRCLE_BRANCH\",
-                            \"source\":\"$source\"
+                            \"source\":\"$source\",
+                            \"variant\":\"$variant\"
                         }
                 }"
     )
@@ -52,6 +54,7 @@ function triggerAndroidTests() {
 }
 
 source=$2
+variant=${3:-Single card}
 
 case $1 in
    "triggeriOSTests") triggeriOSTests;;
