@@ -1,0 +1,132 @@
+# Keeps the qa branch current with main, so what is tested there reflects what
+# customers get from main. See CONTRIBUTING.md -> "Keeping `qa` current with `main`".
+#
+# This only ever OPENS the pull request. Merging is deliberately left to a human:
+# the branches diverge across most shared files, so these merges conflict routinely
+# and a change on main often needs a matching change to a QA rig before it is
+# testable. Neither is a decision a workflow should make.
+name: Sync main to qa
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Several pushes to main in quick succession would otherwise race to open the same
+# PR. Queue them instead of cancelling: a cancelled run could drop the only chance
+# to open one for a commit that nothing later supersedes.
+concurrency:
+  group: sync-main-to-qa
+  cancel-in-progress: false
+
+jobs:
+  open-sync-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the full history
+        uses: actions/checkout@v4
+        with:
+          # merge-base and the trial merge below both need real history, not the
+          # single commit a default checkout fetches.
+          fetch-depth: 0
+
+      - name: Decide whether a sync is needed
+        id: check
+        run: |
+          if ! git show-ref --verify --quiet refs/remotes/origin/qa; then
+            echo "No qa branch on origin - nothing to sync."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor origin/main origin/qa; then
+            echo "qa already contains main - nothing to sync."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "qa is behind main - a sync PR is needed."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Look for an open sync PR
+        id: existing
+        if: steps.check.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # GitHub keeps an open PR current as more commits land on main, so one is
+          # enough - opening another per push would just create noise to close.
+          number="$(gh pr list --base qa --head main --state open --json number --jq '.[0].number // empty')"
+
+          if [ -n "$number" ]; then
+            echo "PR #${number} is already open and will pick up this push."
+            echo "open=true" >> "$GITHUB_OUTPUT"
+            echo "number=${number}" >> "$GITHUB_OUTPUT"
+          else
+            echo "open=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Find out whether the merge is clean
+        id: merge
+        if: steps.check.outputs.needed == 'true' && steps.existing.outputs.open != 'true'
+        run: |
+          # A throwaway local branch: nothing here is ever pushed, and --no-commit
+          # means no commit object is created, so this needs no git identity. Restore
+          # one if this ever changes to actually commit. It only reports which files
+          # whoever picks the PR up will have to resolve by hand.
+          git checkout -q -B sync-main-to-qa-trial origin/qa
+
+          if git merge --no-commit --no-ff origin/main >/dev/null 2>&1; then
+            echo "The merge is clean."
+            echo "clean=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "conflicts<<CONFLICTS_EOF"
+              git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/'
+              echo "CONFLICTS_EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+          # Leaves no merge in progress either way, so the checkout stays usable.
+          git merge --abort || true
+
+      - name: Open the sync PR
+        if: steps.check.outputs.needed == 'true' && steps.existing.outputs.open != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLEAN: ${{ steps.merge.outputs.clean }}
+          CONFLICTS: ${{ steps.merge.outputs.conflicts }}
+          # Relative links do not resolve reliably in a PR body, so build an absolute one.
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          {
+            echo "Merges \`main\` into \`qa\` so internal testing reflects the customer-facing"
+            echo "boilerplate. Opened automatically by \`.github/workflows/sync-main-to-qa.yml\`."
+            echo
+
+            if [ "$CLEAN" = "true" ]; then
+              echo "The merge applies cleanly."
+            else
+              echo "**This merge conflicts.** Expected - the branches diverge across most shared"
+              echo "files. Resolve on \`qa\`, keeping the QA rigs and internal defaults, and take"
+              echo "\`main\`'s version of anything customer-facing:"
+              echo
+              echo "$CONFLICTS"
+            fi
+
+            echo
+            echo "Before merging, check that a change on \`main\` does not need a matching change"
+            echo "to a QA rig to be testable, and that \`qa\` still builds. See"
+            echo "[CONTRIBUTING.md](${REPO_URL}/blob/qa/CONTRIBUTING.md#keeping-qa-current-with-main)."
+          } > pr-body.md
+
+          gh pr create \
+            --base qa \
+            --head main \
+            --title "Sync \`main\` into \`qa\`" \
+            --body-file pr-body.md

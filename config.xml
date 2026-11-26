@@ -8,11 +8,18 @@
     <content src="index.html" />
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
-    <allow-navigation href="blob:*" />
-    <!-- <allow-navigation href="blob:https://localhost/" /> -->
-    <allow-navigation href="about:blank" />
 
     <preference name="EnableViewportScale" value="true"/>
+    <preference name="deployment-target" value="15.0"/>
+
+    <platform name="ios">
+      <!-- Firebase's Google dependencies (GoogleUtilities, GoogleDataTransport, nanopb,
+           PromisesObjC) still declare iOS 9.0/12.0 deployment targets, which current
+           Xcode rejects outright, and `cordova prepare` regenerates the Podfile and so
+           resets them every time. This hook raises every pod to the deployment target
+           above after each prepare. See scripts/fix-ios-pod-deployment-target.js. -->
+      <hook type="after_prepare" src="scripts/fix-ios-pod-deployment-target.js" />
+    </platform>
 
     <platform name="android">
       <resource-file src="google-services.json" target="/app/google-services.json" />
